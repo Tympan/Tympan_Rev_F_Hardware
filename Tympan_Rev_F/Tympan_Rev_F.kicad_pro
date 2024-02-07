@@ -1161,7 +1161,7 @@
       "idf": "",
       "netlist": "Tympan_Rev_E1.net",
       "specctra_dsn": "",
-      "step": "../../../../Desktop/Tympan_Rev_E.STEP",
+      "step": "../../../biomurph github/Creare/Dosimeter-PCB/3D_Models/Tympan_Rev_E.STEP",
       "vrml": ""
     },
     "page_layout_descr_file": ""

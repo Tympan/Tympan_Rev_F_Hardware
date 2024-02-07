@@ -4612,7 +4612,7 @@
 
   (footprint "Pin_Headers:Pin_Header_Straight_1x06_Pitch2.00mm" (layer "F.Cu")
     (tstamp 00000000-0000-0000-0000-000060a34009)
-    (at 135.45 130.75 180)
+    (at 135.4 130.7 180)
     (descr "Through hole straight pin header, 1x06, 2.00mm pitch, single row")
     (tags "Through hole pin header THT 1x06 2.00mm single row")
     (path "/00000000-0000-0000-0000-000060a6c033")
@@ -7160,7 +7160,7 @@
   (segment (start 165 78.45) (end 163.974999 79.475001) (width 0.25) (layer "In2.Cu") (net 135) (tstamp a2510abb-a52a-4a0d-8eb6-a9478c727267))
   (segment (start 142.65 128.1) (end 142.65 119.65) (width 0.25) (layer "In2.Cu") (net 135) (tstamp a2b7c101-871c-4ccc-a67c-b07bd3be77d6))
   (segment (start 164.375001 105.051999) (end 164.375001 114.624999) (width 0.25) (layer "In2.Cu") (net 135) (tstamp bd2893d1-43df-4b47-8761-3c57a2e426ad))
-  (segment (start 135.45 130.75) (end 140 130.75) (width 0.25) (layer "In2.Cu") (net 135) (tstamp c8b52a94-3ac7-40fb-a1de-20fcef6d410a))
+  (segment (start 135.4 130.7) (end 139.95 130.7) (width 0.25) (layer "In2.Cu") (net 135) (tstamp c8b52a94-3ac7-40fb-a1de-20fcef6d410a))
   (segment (start 162.65 78.47) (end 164.98 78.47) (width 0.25) (layer "B.Cu") (net 135) (tstamp 2a1a5c2a-6af2-4b64-83ac-48c8cff47287))
   (segment (start 164.98 78.47) (end 165 78.45) (width 0.25) (layer "B.Cu") (net 135) (tstamp 9380e294-a4b3-419f-940e-90e02214b18e))
 
