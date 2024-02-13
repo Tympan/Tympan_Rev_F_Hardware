@@ -266,11 +266,6 @@ K ampliop
 F analog-dev/op275.pdf
 $ENDCMP
 #
-$CMP Xtal
-D Two pin crystal
-K Quartz, Ceramic, Filter, Resonator
-$ENDCMP
-#
 $CMP micro_USB
 D USB Type B connector
 K connector USB
