@@ -1,4 +1,4 @@
-35865097283297
+40989411442755
 Tympan
 24_Pin_0.1p_SMT_Strip
 
@@ -63,6 +63,13 @@ FA_238_16.0000MB_K3
 4
 4
 Tympan
+J-Link_POGO_SIP_0.1inP
+
+
+0
+6
+6
+Tympan
 LFXTAL009678
 
 
@@ -91,12 +98,26 @@ translated Allegro footprint
 10
 10
 Tympan
+SAMTEC_SHF-105-01-X-D-TH
+
+
+0
+10
+10
+Tympan
 SC-70-3
 
 
 0
 3
 3
+Tympan
+SIP-6
+
+
+0
+6
+6
 Tympan
 SJ-3523-SMT-TR
 
