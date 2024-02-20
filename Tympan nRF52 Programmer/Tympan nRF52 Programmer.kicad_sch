@@ -6,7 +6,7 @@
 
   (title_block
     (title "Tympan Rev F")
-    (date "2024-01-19")
+    (date "2024-02-16")
     (rev "v1")
     (company "Tympan Master Hearing Aid Project")
     (comment 1 "Designed by Flywheel Lab, Troy")
@@ -392,6 +392,10 @@
     (uuid fabf4f0f-6167-4dff-834f-70f49abd4955)
   )
 
+  (text "Use Mill-Max\n0908-9-15-20-75-14-11-0" (at 71.12 140.97 0)
+    (effects (font (size 1.524 1.524)) (justify left bottom))
+    (uuid 026bbc1b-a954-4b35-9a5d-db5748f47c10)
+  )
   (text "NPTH Mounting Holes" (at 70.485 79.375 0)
     (effects (font (size 1.524 1.524)) (justify left bottom))
     (uuid 9330b91e-a5c8-41c3-be0c-a9336d0f050d)
@@ -715,6 +719,31 @@
       (project "Tympan nRF52 Programmer"
         (path "/0895d2a9-2102-4837-8faf-68ca65e88f0b"
           (reference "J2") (unit 1)
+        )
+      )
+    )
+  )
+
+  (symbol (lib_id "Connector_Generic:Conn_01x01") (at 80.645 55.88 0) (unit 1)
+    (in_bom yes) (on_board yes) (dnp no)
+    (uuid eb72cf02-ea77-4314-9f4a-ff33d45ec58d)
+    (property "Reference" "P1" (at 80.645 53.34 0)
+      (effects (font (size 1.27 1.27)))
+    )
+    (property "Value" "CONN_01X01" (at 88.265 55.88 0)
+      (effects (font (size 1.27 1.27)))
+    )
+    (property "Footprint" "MountingHole:MountingHole_3mm" (at 80.645 55.88 0)
+      (effects (font (size 1.27 1.27)) hide)
+    )
+    (property "Datasheet" "" (at 80.645 55.88 0)
+      (effects (font (size 1.27 1.27)))
+    )
+    (pin "1" (uuid a7475c8a-77c0-4618-9535-6f1663a7adba))
+    (instances
+      (project "Tympan nRF52 Programmer"
+        (path "/0895d2a9-2102-4837-8faf-68ca65e88f0b"
+          (reference "P1") (unit 1)
         )
       )
     )
