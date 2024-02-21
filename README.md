@@ -46,15 +46,17 @@ The other software that you need is Arduino IDE, which is assumed to be installe
 - MAP
 - ZIP
 
-Each file is used for different Device Firmware Update (DFU) processes. For the purpose of initial flashing via J-Link, we will use the hex file. You may note that the full name of the file is something like `baseFirmware_TympanRadio.ino.hex`. The inclusion of the .ino in the name should not cause a problem, but if you want you can change the name and remove the .ino. Just make sure to keep the .hex.
+Each file is used for different Device Firmware Update (DFU) processes. For the purpose of initial flashing via J-Link, we will use the `.hex` file. You may note that the full name of the file is something like `baseFirmware_TympanRadio.ino.hex`. The inclusion of the .ino in the name should not cause a problem, but if you want you can change the name and remove the .ino. Just make sure to keep the .hex.
 
-We will be flashing a blank nRF52 module with Adafruit's Feather Express bootloader variant. The file we need is a `.hex` file, and it is located in {PATH TO BOOT.HEX}. We recommend making a copy of it, and moving it into the same folder that we just made to keep things tidy.
+We will be flashing a blank nRF52 module with Adafruit's Feather Express bootloader variant. The file we need is a `.hex` file, and it is located in `C:\Users\{USERNAME}\AppData\Local\Arduino15\packages\adafruit\hardware\nrf52\1.6.0\bootloader\feather_nrf52840_express\feather_nrf52840_express_bootloader-0.8.0_s140.6.1.1.hex`. We recommend making a copy of it, and moving it into the same folder that the IDE just made to keep things tidy.
 
-Open a command prompt window (now power shell), and navigate to `C/Program Files (x86)/Nordic Semiconductor/bin` and enter the following commands. 
+Open a Command Prompt window, and navigate to `C:\Program Files (x86)\Nordic Semiconductor\nrf-command-line-tools\bin`, and then enter the following commands:
+
+`nrfjprog --program {PATH}\feather_nrf52840_express_bootloader-0.8.0_s140_6.1.1.hex -f nrf52 --chiperase --reset && nrfjprog --memwr 0xFF000 --val 0x01 && nrfjprog --reset --program {PATH}\baseFirmwareJ_Link_TympanRadio.ino.hex` 
 
 The first command flashes the bootloader and the Bluetooth soft device. The second command sets a bit in 0xFF000 in order to bypass 'virgin program' hurdle. The third command programs the application software. 
 
-Any updates to the application software can be done over Bluetooth using Over The Air Device Firmware Update (OTA DFU). This tutorial will currently cover one method for doing this, using Adafruit's Bluefruit Connect app. You need to files to upload via Bluefruit Connect. One is the hex file that you made using the IDE, and the other is a `.dat` file. The dat file is contained in the zip file that was also produced in the compile binary command. Unzip that compressed folder, and find the .dat file inside of it.
+Any updates to the application software can be done over Bluetooth using Over The Air Device Firmware Update (OTA DFU). This tutorial will currently cover one method for doing this, using Adafruit's Bluefruit Connect app. You need two files to upload via Bluefruit Connect. One is the hex file that you make using the IDE, just as above. The other is a `.dat` file. The dat file is contained inside the compressed zip file that was also produced in the compile binary command above. Unzip that compressed folder, and find the `.dat` file inside of it. Both of these files need to be accessible on the phone or tablet or computorb that you intend to use to perform the OTA DFU.
 
-In the Bluefruit Connect App, search for and connect to a Tympan board. Select Updates then scroll all the way down to the USE CUSTOM FIRMWARE button and press it. You will be prompted to find the .hex and .dat fies, and then press UPLOAD. The process can take some time, but there is a status bar showing progress. 
+In the Bluefruit Connect App, search for and connect to a Tympan board. Select Updates then scroll all the way down to the USE CUSTOM FIRMWARE button and press it. You will be prompted to find a "Hex File" and an "Init File" the "Hex" is the `.hex` and the "Init" is the `.dat`. Then press "Start Update". The process can take some time, but there is a status bar showing progress. 
 
