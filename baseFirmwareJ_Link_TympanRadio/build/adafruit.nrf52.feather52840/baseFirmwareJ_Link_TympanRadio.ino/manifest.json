@@ -1,0 +1,18 @@
+{
+    "manifest": {
+        "application": {
+            "bin_file": "baseFirmwareJ_Link_TympanRadio.ino.bin",
+            "dat_file": "baseFirmwareJ_Link_TympanRadio.ino.dat",
+            "init_packet_data": {
+                "application_version": 4294967295,
+                "device_revision": 65535,
+                "device_type": 82,
+                "firmware_crc16": 4401,
+                "softdevice_req": [
+                    182
+                ]
+            }
+        },
+        "dfu_version": 0.5
+    }
+}
