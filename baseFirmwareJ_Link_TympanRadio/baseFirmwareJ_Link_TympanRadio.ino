@@ -12,7 +12,6 @@
       THIS FIRMWARE IS FOR FLASHING OVER J-LINK
       TARGETTING FOB BLANK MDBT50Q-1MV2 nRF52840 MODULE
 
-      This firmware is 1 part of a 2-part QC process of FOB Tympan Rev F boards
  
     Made by Joel Murphy for Flywheel Lab, February 2024
  */
@@ -53,7 +52,7 @@ void setup() {
   for(int i=0; i<3; i++){
     pinMode(ledPin[i],OUTPUT);
   }
-  lastShowTime = millis(); // - FADE_DELAY_SLOW;
+  lastShowTime = millis();
 }
 
 
