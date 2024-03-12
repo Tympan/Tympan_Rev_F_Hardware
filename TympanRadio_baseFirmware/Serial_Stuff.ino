@@ -44,7 +44,7 @@
 
 void printHelp(){
   if(usingSerial){
-    Serial.println();
+    Serial.print("\nTympanRadio_baseFirmware.ino ");
     Serial.println(versionString);
     Serial.print("BLE Address: "); Serial.println(deviceName);
     Serial.println("Serial Keyboard Commands");
@@ -53,6 +53,9 @@ void printHelp(){
     Serial.println("Send 'g' to fade green LED 1");
     Serial.println("Send 'b' to fade blue LED 2");
     Serial.println("Press '?' to print this help");
+    Serial.print("Please use Bluetooth to connect to ");
+    Serial.println(deviceName);
+    Serial.println("Once connected, use bleuart and send '?' to print help");
   }
   printedHelp = true;
 }

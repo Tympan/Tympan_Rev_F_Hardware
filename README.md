@@ -47,13 +47,13 @@ The other software that you need is Arduino IDE, which is assumed to be installe
 - MAP
 - ZIP
 
-Each file is used for different Device Firmware Update (DFU) processes. For the purpose of initial flashing via J-Link, we will use the `.hex` file. You may note that the full name of the file is something like `baseFirmware_TympanRadio.ino.hex`. The inclusion of the .ino in the name should not cause a problem, but if you want you can change the name and remove the .ino. Just make sure to keep the .hex suffix.
+Each file is used for different Device Firmware Update (DFU) processes. For the purpose of initial flashing via J-Link, we will use the `.hex` file. You may note that the full name of the file is something like `TympanRadio_baseFirmware.ino.hex`. The inclusion of the .ino in the name should not cause a problem, but if you want you can change the name and remove the .ino. Just make sure to keep the .hex suffix.
 
 We will be flashing a blank nRF52 module with Adafruit's Feather Express bootloader variant. The file we need is a `.hex` file, and it is located in `C:\Users\{USERNAME}\AppData\Local\Arduino15\packages\adafruit\hardware\nrf52\1.6.0\bootloader\feather_nrf52840_express\feather_nrf52840_express_bootloader-0.8.0_s140.6.1.1.hex`. We recommend making a copy of it, and moving it into the same folder that the IDE just made to keep things tidy.
 
 Open a Command Prompt window, and navigate to `C:\Program Files (x86)\Nordic Semiconductor\nrf-command-line-tools\bin`, and then enter the following commands:
 
-`nrfjprog --program {PATH}\feather_nrf52840_express_bootloader-0.8.0_s140_6.1.1.hex -f nrf52 --chiperase --reset && nrfjprog --memwr 0xFF000 --val 0x01 && nrfjprog --reset --program {PATH}\baseFirmwareJ_Link_TympanRadio.ino.hex` 
+`nrfjprog --program {PATH}\feather_nrf52840_express_bootloader-0.8.0_s140_6.1.1.hex -f nrf52 --chiperase --reset && nrfjprog --memwr 0xFF000 --val 0x01 && nrfjprog --reset --program {PATH}\TympanRadio_baseFirmware.ino.hex --sectorerase -fnrf52`
 
 The first command flashes the bootloader and the Bluetooth soft device. The second command sets a bit in 0xFF000 in order to bypass 'virgin program' hurdle. The third command programs the application software. 
 

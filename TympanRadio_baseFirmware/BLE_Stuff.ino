@@ -58,7 +58,7 @@ int BLEevent(){
     }
     switch(bleInBuffer[0]){
       case 'a':
-          strcpy(outString,"Stop fading"); BLEwrite();
+          strcpy(outString,"Stop Fading"); BLEwrite();
           LEDsOff();
           ledToFade = -1;
           break;
@@ -69,13 +69,13 @@ int BLEevent(){
           fadeValue = FADE_MIN;
           break;
        case 'g':
-          strcpy(outString,"Fade Blue"); BLEwrite();
+          strcpy(outString,"Fade Green"); BLEwrite();
           LEDsOff();
           ledToFade = LED_1;
           fadeValue = FADE_MIN;
           break;
        case 'b':
-          strcpy(outString,"Fade Green"); BLEwrite();
+          strcpy(outString,"Fade Blue"); BLEwrite();
           LEDsOff();
           ledToFade = LED_2;
           fadeValue = FADE_MIN;
@@ -183,7 +183,8 @@ void disconnect_callback(uint16_t conn_handle, uint8_t reason)
 
 void printBLEhelp(){
   if(bleConnected){
-    strcpy(outString,versionString); BLEwrite();
+    strcpy(outString,"\nTympanRadio_baseFirmware.ino ");
+    strcat(outString,versionString); BLEwrite();
     strcpy(outString,"BLE Address: "); strcat(outString,deviceName); BLEwrite();
     strcpy(outString,"BLE Key Commands"); BLEwrite();
     strcpy(outString,"Send 'a' to stop blinking"); BLEwrite();

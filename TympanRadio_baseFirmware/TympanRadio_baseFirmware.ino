@@ -44,14 +44,13 @@ void setup() {
   // start advertising
   startAdv();
   if(usingSerial){
-    Serial.println(); Serial.println(versionString);
-    Serial.print("Please use Bluetooth to connect to ");
-    Serial.println(deviceName);
-    Serial.println("Once connected, send '?' to print help");
+    Serial.println("advertising as "); Serial.println(versionString);
+    
   }
   for(int i=0; i<3; i++){
     pinMode(ledPin[i],OUTPUT);
   }
+  ledToFade = blue; // initialize this as you like
   lastShowTime = millis();
 }
 

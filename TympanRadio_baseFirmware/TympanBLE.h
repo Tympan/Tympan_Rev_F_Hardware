@@ -50,7 +50,7 @@ int ledToFade = blue;
 unsigned long lastShowTime;
 
 //
-bool printedHelp = true;
+bool printedHelp = false;
 bool usingSerial = true;
 
 #endif
