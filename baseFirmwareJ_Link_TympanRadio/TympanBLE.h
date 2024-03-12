@@ -38,11 +38,15 @@ char numberBuffer[NUM_BUF_LENGTH];
 #define FADE_RATE 8
 #define FADE_MAX 0
 #define FADE_MIN 255
+int red = LED_0;
+int green = LED_1;
+int blue = LED_2;
 int ledPin[3] = {LED_0, LED_1, LED_2}; // red, blue, green
-unsigned int fadeDelay = FADE_DELAY_SLOW;
+unsigned int fadeDelay = FADE_DELAY_FAST;
+// unsigned int fadeDelay = FADE_DELAY_SLOW;
 int fadeRate = 0 - FADE_RATE;
 int fadeValue = FADE_MIN;
-int ledToFade = LED_0;
+int ledToFade = blue;
 unsigned long lastShowTime;
 
 //

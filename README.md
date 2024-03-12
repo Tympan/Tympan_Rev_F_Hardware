@@ -11,7 +11,8 @@ For the most part, the design of Rev F is a clone of Rev E. The primary challeng
 - nRF52 does not support analog audio, but evidence exists that it can use I2S
 	- I2S connections between Teensy 4.1 and nRF52 on I2S_2 pins
 - UART coms with the BC127 were slower than desired
-	- UART com pins are connected and also the SPI_1 bus for higher speed
+	- The SPI_1 bus is connected to nRF module for higher speed
+	- The UART pins are still connected
 
 
 ## Programming The Radio Module
@@ -20,8 +21,8 @@ For the most part, the design of Rev F is a clone of Rev E. The primary challeng
 The blank nRF52 module is programmable using the j-Link connection on pins SWO, SWCLK, SWDIO, RESET, 3V3, and GND. Those module pins are broken out to a header row on the bottom of the board. See connector J7 in the schematic, and the 6 SMT pads on the back layer of the PCB design.
 
 ![nRF52 shematic](assets/nRF52_schem.png)
-
-![J-Link Pads](assets/Rev_E_Bottom.pdf)
+-
+![J-Link Pads](assets/Rev_E_Bottom.png)
 
 ### Programming Fixture
 
@@ -46,7 +47,7 @@ The other software that you need is Arduino IDE, which is assumed to be installe
 - MAP
 - ZIP
 
-Each file is used for different Device Firmware Update (DFU) processes. For the purpose of initial flashing via J-Link, we will use the `.hex` file. You may note that the full name of the file is something like `baseFirmware_TympanRadio.ino.hex`. The inclusion of the .ino in the name should not cause a problem, but if you want you can change the name and remove the .ino. Just make sure to keep the .hex.
+Each file is used for different Device Firmware Update (DFU) processes. For the purpose of initial flashing via J-Link, we will use the `.hex` file. You may note that the full name of the file is something like `baseFirmware_TympanRadio.ino.hex`. The inclusion of the .ino in the name should not cause a problem, but if you want you can change the name and remove the .ino. Just make sure to keep the .hex suffix.
 
 We will be flashing a blank nRF52 module with Adafruit's Feather Express bootloader variant. The file we need is a `.hex` file, and it is located in `C:\Users\{USERNAME}\AppData\Local\Arduino15\packages\adafruit\hardware\nrf52\1.6.0\bootloader\feather_nrf52840_express\feather_nrf52840_express_bootloader-0.8.0_s140.6.1.1.hex`. We recommend making a copy of it, and moving it into the same folder that the IDE just made to keep things tidy.
 
@@ -56,7 +57,8 @@ Open a Command Prompt window, and navigate to `C:\Program Files (x86)\Nordic Sem
 
 The first command flashes the bootloader and the Bluetooth soft device. The second command sets a bit in 0xFF000 in order to bypass 'virgin program' hurdle. The third command programs the application software. 
 
-Any updates to the application software can be done over Bluetooth using Over The Air Device Firmware Update (OTA DFU). This tutorial will currently cover one method for doing this, using Adafruit's Bluefruit Connect app. You need two files to upload via Bluefruit Connect. One is the hex file that you make using the IDE, just as above. The other is a `.dat` file. The dat file is contained inside the compressed zip file that was also produced in the compile binary command above. Unzip that compressed folder, and find the `.dat` file inside of it. Both of these files need to be accessible on the phone or tablet or computorb that you intend to use to perform the OTA DFU.
+## Over The Air Firmware Updates
+Any updates to the application software can be done over Bluetooth using Over The Air Device Firmware Update (OTA DFU). This tutorial will currently cover one method for doing this, using Adafruit's Bluefruit Connect app. You need two files to upload via Bluefruit Connect. One is the hex file that you make using the IDE, just as above. The other is a `.dat` file. The dat file is contained inside the compressed zip file that was also produced in the compile binary command above. Unzip that compressed folder, and find the `.dat` file inside of it. Both of these files need to be accessible on the phone, or tablet, or computorb, that you intend to use to perform the OTA DFU.
 
-In the Bluefruit Connect App, search for and connect to a Tympan board. Select Updates then scroll all the way down to the USE CUSTOM FIRMWARE button and press it. You will be prompted to find a "Hex File" and an "Init File" the "Hex" is the `.hex` and the "Init" is the `.dat`. Then press "Start Update". The process can take some time, but there is a status bar showing progress. 
+In the Bluefruit Connect App, search for and connect to your Tympan board. Select Updates then scroll all the way down to the USE CUSTOM FIRMWARE button way down there, and press it. You will be prompted to find a "Hex File" and an "Init File". The "Hex" is the `.hex` and the "Init" is the `.dat` that we discussed in the previous paragraph. Then press "Start Update". The process can take some time, but there is a status bar that should animate the progress. 
 

@@ -75,11 +75,11 @@ void showRGB_LED(unsigned long m){
     lastShowTime = m; // keep time
     fadeValue += fadeRate;  // adjust brightness
     if(fadeValue >= FADE_MIN){ // LEDs are Common Anode
-      fadeRate = 0 - FADE_RATE; // change direction
       fadeValue = FADE_MIN; // keep in bounds
+      fadeRate = 0 - FADE_RATE; // change direction
     } else if(fadeValue <= FADE_MAX){ // LEDs are Common Anode
-      fadeRate = 0 + FADE_RATE; // change direction
       fadeValue = FADE_MAX; // keep in bounds
+      fadeRate = 0 + FADE_RATE; // change direction
     }
   analogWrite(ledToFade,fadeValue);
   }

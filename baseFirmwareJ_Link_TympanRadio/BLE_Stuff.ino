@@ -62,19 +62,19 @@ int BLEevent(){
           LEDsOff();
           ledToFade = -1;
           break;
-       case 'b':
+       case 'r':
           strcpy(outString,"Fade Red"); BLEwrite();
           LEDsOff();
           ledToFade = LED_0;
           fadeValue = FADE_MIN;
           break;
-       case 'c':
+       case 'g':
           strcpy(outString,"Fade Blue"); BLEwrite();
           LEDsOff();
           ledToFade = LED_1;
           fadeValue = FADE_MIN;
           break;
-       case 'd':
+       case 'b':
           strcpy(outString,"Fade Green"); BLEwrite();
           LEDsOff();
           ledToFade = LED_2;
@@ -89,7 +89,7 @@ int BLEevent(){
 //           break;
         default:
           outString[0] = bleInBuffer[0]; outString[1] = '\0';
-          strcat(outString," is not recognised");
+          strcat(outString," is not recognized");
           BLEwrite();
           break;
     }
@@ -187,9 +187,9 @@ void printBLEhelp(){
     strcpy(outString,"BLE Address: "); strcat(outString,deviceName); BLEwrite();
     strcpy(outString,"BLE Key Commands"); BLEwrite();
     strcpy(outString,"Send 'a' to stop blinking"); BLEwrite();
-    strcpy(outString,"Send 'b' to blink LED 0"); BLEwrite();
-    strcpy(outString,"Send 'c' to blink LED 1"); BLEwrite();
-    strcpy(outString,"Send 'd' to blink LED 2"); BLEwrite();
+    strcpy(outString,"Send 'r' to blink red LED 0"); BLEwrite();
+    strcpy(outString,"Send 'g' to blink green LED 1"); BLEwrite();
+    strcpy(outString,"Send 'b' to blink blue LED 2"); BLEwrite();
     strcpy(outString,"Send '?' to print this help"); BLEwrite();
   }
   printedBLEhelp = true;

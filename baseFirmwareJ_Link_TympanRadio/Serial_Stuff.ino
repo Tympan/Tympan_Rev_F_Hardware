@@ -12,21 +12,21 @@
           LEDsOff();
           ledToFade = -1;
           break;
-        case 'b':
-          Serial.println("Fade LED 0");
+        case 'r':
+          Serial.println("Fade red LED 0");
           LEDsOff();
           ledToFade = LED_0;
           fadeValue = FADE_MIN;
           break;
-       case 'c':
-          Serial.println("Fade LED 1");
+       case 'g':
+          Serial.println("Fade green LED 1");
           LEDsOff();
           ledToFade = LED_1;
           fadeValue = FADE_MIN;
           
           break;
-       case 'd':
-          Serial.println("Fade LED 2");
+       case 'b':
+          Serial.println("Fade blue LED 2");
           LEDsOff();
           ledToFade = LED_2;
           fadeValue = FADE_MIN;
@@ -49,9 +49,9 @@ void printHelp(){
     Serial.print("BLE Address: "); Serial.println(deviceName);
     Serial.println("Serial Keyboard Commands");
     Serial.println("Send 'a' to stop fading");	
-    Serial.println("Send 'b' to fade LED 0");	
-    Serial.println("Send 'c' to fade LED 1");
-    Serial.println("Send 'd' to fade LED 2");
+    Serial.println("Send 'r' to fade red LED 0");	
+    Serial.println("Send 'g' to fade green LED 1");
+    Serial.println("Send 'b' to fade blue LED 2");
     Serial.println("Press '?' to print this help");
   }
   printedHelp = true;
