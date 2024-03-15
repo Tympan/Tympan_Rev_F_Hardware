@@ -45,7 +45,7 @@ void setup() {
   startAdv();
   if(usingSerial){
     Serial.println("advertising as "); Serial.println(versionString);
-    
+    Serial.println("connect and send '?' for options");
   }
   for(int i=0; i<3; i++){
     pinMode(ledPin[i],OUTPUT);

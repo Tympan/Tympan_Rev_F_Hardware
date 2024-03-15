@@ -15,20 +15,20 @@
         case 'r':
           Serial.println("Fade red LED 0");
           LEDsOff();
-          ledToFade = LED_0;
+          ledToFade = red;
           fadeValue = FADE_MIN;
           break;
        case 'g':
           Serial.println("Fade green LED 1");
           LEDsOff();
-          ledToFade = LED_1;
+          ledToFade = green;
           fadeValue = FADE_MIN;
           
           break;
        case 'b':
           Serial.println("Fade blue LED 2");
           LEDsOff();
-          ledToFade = LED_2;
+          ledToFade = blue;
           fadeValue = FADE_MIN;
 
           break;

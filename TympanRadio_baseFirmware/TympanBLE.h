@@ -5,8 +5,8 @@
 
 // PINS
 #define LED_0 14  // red
-#define LED_1 12  // blue
-#define LED_2 15  // green
+#define LED_1 12  // green
+#define LED_2 15  // blue
 
 #define MESSAGE_LENGTH 256     // default ble buffer size
 #define OUT_STRING_LENGTH 201
@@ -37,13 +37,13 @@ char numberBuffer[NUM_BUF_LENGTH];
 #define FADE_DELAY_FAST 5
 #define FADE_RATE 8
 #define FADE_MAX 0
-#define FADE_MIN 255
+#define FADE_MIN 1128 // 255
 int red = LED_0;
-int green = LED_1;
-int blue = LED_2;
+int blue = LED_1;
+int green = LED_2;
 int ledPin[3] = {LED_0, LED_1, LED_2}; // red, blue, green
-unsigned int fadeDelay = FADE_DELAY_FAST;
-// unsigned int fadeDelay = FADE_DELAY_SLOW;
+// unsigned int fadeDelay = FADE_DELAY_FAST;
+unsigned int fadeDelay = FADE_DELAY_SLOW;
 int fadeRate = 0 - FADE_RATE;
 int fadeValue = FADE_MIN;
 int ledToFade = blue;
