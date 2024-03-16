@@ -2,3 +2,6 @@
 *.xml
 *.csv
 *.gcode
+*.lck
+*.xlsx#
+*.DS_Store
