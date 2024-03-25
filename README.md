@@ -34,7 +34,7 @@ The J-Link by Segger is preferred for flashing the bootloader and any applicatio
 
 Adafruit also sells a [low-cost J-Link](https://www.adafruit.com/product/3571) for educational purposes. The EDU version is specifically not for use in commercial applications. If you need to re-program your radio from the bootloader up, your personal use of the EDU version will not break that rule!
 
-## Software Requirements
+## Programming With Hardware Connection
 
 There are a couple of routes through different toolchains that are available to bootload the nRF52 module using the J-link. Our current method uses Command Line Tools from Nordic, the makers of the nRF52 chipset. Download the [Command Line Tools](https://www.nordicsemi.com/Products/Development-tools/nrf-command-line-tools/download), and install them to `Program Files (x86)`
 
@@ -58,7 +58,7 @@ Open a Command Prompt window, and navigate to `C:\Program Files (x86)\Nordic Sem
 The first command flashes the bootloader and the Bluetooth soft device. The second command sets a bit in 0xFF000 in order to bypass 'virgin program' hurdle. The third command programs the application software. 
 
 ## Over The Air Firmware Updates
-Any updates to the application software can be done over Bluetooth using Over The Air Device Firmware Update (OTA DFU). This tutorial will currently cover one method for doing this, using Adafruit's Bluefruit Connect app. You need two files to upload via Bluefruit Connect. One is the hex file that you make using the IDE, just as above. The other is a `.dat` file. The dat file is contained inside the compressed zip file that was also produced in the compile binary command above. Unzip that compressed folder, and find the `.dat` file inside of it. Both of these files need to be accessible on the phone, or tablet, or computorb, that you intend to use to perform the OTA DFU.
+Any updates to the application software can be done over Bluetooth using Over The Air Device Firmware Update (OTA DFU). This tutorial will currently cover one method for doing this, using Adafruit's Bluefruit Connect app. You need two files to upload which Arduino makes when you click on `Sketch > Export Compiled Binary`. One is the `.hex` file, The other is a `.dat` file. The `.dat` file is contained inside the compressed `.zip` file that was also produced by the compile binary command. Unzip compressed folder, and find the `.dat` file inside of it. Both of these files need to be accessible on the phone, or tablet, or computorb, that you intend to use to perform the OTA DFU.
 
 In the Bluefruit Connect App, search for and connect to your Tympan board. Select Updates then scroll all the way down to the USE CUSTOM FIRMWARE button way down there, and press it. You will be prompted to find a "Hex File" and an "Init File". The "Hex" is the `.hex` and the "Init" is the `.dat` that we discussed in the previous paragraph. Then press "Start Update". The process can take some time, but there is a status bar that should animate the progress. 
 
