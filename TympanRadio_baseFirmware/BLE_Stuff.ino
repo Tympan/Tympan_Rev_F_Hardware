@@ -65,19 +65,19 @@ int BLEevent(){
        case 'r':
           strcpy(outString,"Fade Red"); BLEwrite();
           LEDsOff();
-          ledToFade = LED_0;
+          ledToFade = red;
           fadeValue = FADE_MIN;
           break;
        case 'g':
           strcpy(outString,"Fade Green"); BLEwrite();
           LEDsOff();
-          ledToFade = LED_1;
+          ledToFade = green;
           fadeValue = FADE_MIN;
           break;
        case 'b':
           strcpy(outString,"Fade Blue"); BLEwrite();
           LEDsOff();
-          ledToFade = LED_2;
+          ledToFade = blue;
           fadeValue = FADE_MIN;
           break;
 

@@ -33,11 +33,11 @@ char outString[OUT_STRING_LENGTH];
 char numberBuffer[NUM_BUF_LENGTH];
 
 // LED fade stuff
-#define FADE_DELAY_SLOW 20
+#define FADE_DELAY_SLOW 50
 #define FADE_DELAY_FAST 5
 #define FADE_RATE 8
-#define FADE_MAX 0
-#define FADE_MIN 1128 // 255
+#define FADE_MAX 127
+#define FADE_MIN 255
 int red = LED_0;
 int blue = LED_1;
 int green = LED_2;

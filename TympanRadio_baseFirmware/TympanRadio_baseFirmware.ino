@@ -30,8 +30,7 @@ BLEUart bleuart; // uart over ble
 void setup() {
   Serial.begin(115200);
   unsigned long t = millis();
-  int timeOut = 5000; // 5 second time out before we bail on a serial connection
-//  while ( !Serial ) yield();   // use this when running serial fer sher
+  int timeOut = 1000; // 1 second time out before we bail on a serial connection
   while (!Serial) { // use this to allow for serial to time out
     if(millis() - t > timeOut){
       usingSerial = false;

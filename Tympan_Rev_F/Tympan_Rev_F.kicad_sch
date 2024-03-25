@@ -6,10 +6,10 @@
 
   (title_block
     (title "Tympan Rev F")
-    (date "2024-01-19")
+    (date "2024-03-25")
     (rev "v1")
     (company "Tympan Master Hearing Aid Project")
-    (comment 1 "Designed by Flywheel Lab, Troy")
+    (comment 1 "Designed by Flywheel Lab, Troy NY")
   )
 
   (lib_symbols
@@ -4376,8 +4376,8 @@
     (effects (font (size 1.524 1.524)) (justify left bottom))
     (uuid 0722a46b-728d-466c-99fc-31c9f574d138)
   )
-  (text "Same pin out and orientation as Rev D\nfor compatibility with Shields"
-    (at 256.54 290.83 0)
+  (text "Same pin out and orientation as Rev D & Rev E\nfor compatibility with Shields"
+    (at 249.555 290.83 0)
     (effects (font (size 2.54 2.54)) (justify left bottom))
     (uuid 09068cf3-541d-46cd-9f91-21ef4914f30b)
   )
@@ -4397,8 +4397,8 @@
     (effects (font (size 1.524 1.524)) (justify left bottom))
     (uuid 2bb775dd-0c49-4b32-b0c4-810af5ad8534)
   )
-  (text "GAS GUAGE\nI2C ADDRESS 0001011\nUSE INTERNAL PULLUP ON ALARMB PIN"
-    (at 256.54 78.74 0)
+  (text "GAS GUAGE\nI2C ADDRESS 0001011\nUSE INTERNAL PULLUP ON ALARMB PIN\n\nPART IS UNAVAILABLE AT BUILD DATE!\nNOT POPULATED"
+    (at 247.396 84.328 0)
     (effects (font (size 1.524 1.524)) (justify left bottom))
     (uuid 4df11409-05fb-4931-9362-1399c04470b0)
   )
@@ -4467,10 +4467,6 @@
   (text "3352T-1-103L" (at 455.93 219.075 90)
     (effects (font (size 1.524 1.524) (thickness 0.3048) bold) (justify left bottom))
     (uuid b6ba1c8f-0962-44b3-a4c2-0731669299ff)
-  )
-  (text "Removed P5 because it does not fit on board" (at 401.955 292.1 0)
-    (effects (font (size 1.524 1.524)) (justify left bottom))
-    (uuid c0776aee-6e63-4c88-9837-2453d2b7954c)
   )
   (text "MJTP-1117" (at 443.865 154.305 0)
     (effects (font (size 1.524 1.524)) (justify left bottom))
