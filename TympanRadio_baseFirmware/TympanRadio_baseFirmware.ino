@@ -50,6 +50,8 @@ void setup() {
     pinMode(ledPin[i],OUTPUT);
   }
   ledToFade = blue; // initialize this as you like
+  // fadeDelay = FADE_DELAY_FAST;
+  fadeDelay = FADE_DELAY_SLOW;
   lastShowTime = millis();
 }
 

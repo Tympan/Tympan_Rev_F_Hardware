@@ -60,5 +60,13 @@ The first command flashes the bootloader and the Bluetooth soft device. The seco
 ## Over The Air Firmware Updates
 Any updates to the application software can be done over Bluetooth using Over The Air Device Firmware Update (OTA DFU). This tutorial will currently cover one method for doing this, using Adafruit's Bluefruit Connect app. You need two files to upload which Arduino makes when you click on `Sketch > Export Compiled Binary`. One is the `.hex` file, The other is a `.dat` file. The `.dat` file is contained inside the compressed `.zip` file that was also produced by the compile binary command. Unzip compressed folder, and find the `.dat` file inside of it. Both of these files need to be accessible on the phone, or tablet, or computorb, that you intend to use to perform the OTA DFU.
 
+**NOTE: Your Sketch MUST include the following code to ensure that OTA DFU is persistent!
+After your #includes on the main .ino tab activate the DFU Service
+`BLEDfu  bledfu;`
+then, during the setup() turn on the OTA DFU Service
+`bledfu.begin();` Check out the code in TympanRadio_baseFirmware.ino for how it's done.**
+
 In the Bluefruit Connect App, search for and connect to your Tympan board. Select Updates then scroll all the way down to the USE CUSTOM FIRMWARE button way down there, and press it. You will be prompted to find a "Hex File" and an "Init File". The "Hex" is the `.hex` and the "Init" is the `.dat` that we discussed in the previous paragraph. Then press "Start Update". The process can take some time, but there is a status bar that should animate the progress. 
+
+It is advised to close the Adafruit App after the upload process is complete, and then restart if you intend to use it again right away.
 
