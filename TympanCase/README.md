@@ -1,7 +1,7 @@
 # Tympan Rev F Enclosure
 
 Here find STL files for printing the Tympan Rev F case.
-Production cases were printed on a Lulzbot Taz Mini2 in PLA plastic.
+Production cases were printed on a Lulzbot Taz Mini2 in PLA plastic. The bottom is printed in [Turquoise Green](https://www.matterhackers.com/store/l/fillamentum-pla/sk/M48DW96N), and the top is printed in [Pistachio Green](https://www.3dfuel.com/collections/285/products/standard-pla-filament-pistachio-green-2-85mm).
 
 Further notes on hardware used
 
