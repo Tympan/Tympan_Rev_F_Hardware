@@ -1,6 +1,10 @@
 # Tympan Rev F Hardware
 Tympan Rev F Hardware Design Files For First Production Run, Februrary, 2024.
 
+Tympan is Certified Open Source Hardware!
+
+![Certification Mark](assets/certification-mark-US002660-stacked.png)
+
 ## Changes From Rev E
 For the most part, the design of Rev F is a clone of Rev E. The primary challenge of producing Rev E is that the BC127 BLE Radio module we used is not longer available (Product End Of Life). Here are the major changes in the hardware
 
