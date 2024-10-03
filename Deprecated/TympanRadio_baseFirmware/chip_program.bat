@@ -1,0 +1,1 @@
+"C:\Program Files\Nordic Semiconductor\nrf-command-line-tools\bin\nrfjprog.exe" --reset --program build\adafruit.nrf52.feather52840\TympanRadio_baseFirmware.ino.hex --sectorerase --family NRF52 --verify --log

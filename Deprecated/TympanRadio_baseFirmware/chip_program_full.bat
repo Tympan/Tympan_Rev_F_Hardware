@@ -1,0 +1,1 @@
+"C:\Program Files\Nordic Semiconductor\nrf-command-line-tools\bin\nrfjprog.exe" --program feather_nrf52840_express_bootloader-0.8.0_s140_6.1.1.hex --family NRF52 --chiperase --reset --verify && nrfjprog --memwr 0xFF000 --val 0x01 && nrfjprog --reset --program build\adafruit.nrf52.feather52840\TympanRadio_baseFirmware.ino.hex --sectorerase --family NRF52 --verify --log
