@@ -40,7 +40,7 @@ Adafruit also sells a [low-cost J-Link](https://www.adafruit.com/product/3571) f
 
 ## Programming With Hardware Connection
 
-There are a couple of routes through different toolchains that are available to bootload the nRF52 module using the J-link. Our current method uses Command Line Tools from Nordic, the makers of the nRF52 chipset. Download the [Command Line Tools](https://www.nordicsemi.com/Products/Development-tools/nrf-command-line-tools/download), and install them to `Program Files (x86)`. You will also need one element of the Adafruit nRF52 toolset, which means that you need to install it, as described later under "Compiling the Firmware"
+There are a couple of routes through different toolchains that are available to bootload the nRF52 module using the J-link. Our current method uses Command Line Tools from Nordic, the makers of the nRF52 chipset. Download the [Command Line Tools](https://www.nordicsemi.com/Products/Development-tools/nrf-command-line-tools/download), and install them to `Program Files (x86)`. You will also need one element of the Adafruit nRF52 toolset, which means that you need to install it through the Arduino IDE, as described in the section below "Compiling the Firmware".
 
 **>>> NOTE: This tutorial currently only supports Windows OS**
 
@@ -74,11 +74,15 @@ In the Bluefruit Connect App, search for and connect to your Tympan board. Selec
 
 It is advised to close the Adafruit App after the upload process is complete, and then restart if you intend to use it again right away.
 
-## Compiling the Fimrware
+## Compiling the Firmware
 Ideally, you do not need to compile the firmware; you would just use the pre-compiled HEX file already included with this repository.  But, if you do need to re-compile:
 * Install the Arduino IDE.
 * Via the Arduino "Boards Manager", install support for "Adafruit nRF52".
-* Cone this "Tympan Rev F Hardware" repo to your local computer
+  * In the Arduino IDE, go under the File menu and choose "Preferences"
+  * Under "Additional Board Manager URL", add https://adafruit.github.io/arduino-board-index/package_adafruit_index.json
+  * Restart the Arduino IDE
+  * Open the Boards Manager from the Tools -> Board menu and install 'Adafruit nRF52 by Adafruit'
+* Clone this "Tympan Rev F Hardware" repo to your local computer
  
 Once everything is installed, use the Arduino IDE to open "nRF52840_firmware.ino" that is here in the Tympan Rev F repository.  You need to tell the Arduino IDE what hardware you are programming for:
 * Under the "Tools" menu, choose "Board" and set it to "Adafruit Feather nRF52840 Express".
