@@ -20,5 +20,5 @@
 :: When trying to program the device, it must be in the programming nest and the Tympan must
 :: be turned on.  So, it must have its battery or plugged into USB.
 
-"C:\Program Files\Nordic Semiconductor\nrf-command-line-tools\bin\nrfjprog.exe" --program "%LOCALAPPDATA%\Arduino15\packages\adafruit\hardware\nrf52\1.6.1\bootloader\feather_nrf52840_express\feather_nrf52840_express_bootloader-0.9.0_s140_6.1.1.hex" --family NRF52 --chiperase --reset --verify && nrfjprog --memwr 0xFF000 --val 0x01 && nrfjprog --reset --program build\adafruit.nrf52.feather52840\nRF52840_firmware.ino.hex --sectorerase --family NRF52 --verify
+"C:\Program Files\Nordic Semiconductor\nrf-command-line-tools\bin\nrfjprog.exe" --program "%LOCALAPPDATA%\Arduino15\packages\adafruit\hardware\nrf52\1.6.1\bootloader\feather_nrf52840_express\feather_nrf52840_express_bootloader-0.9.0_s140_6.1.1.hex" --family NRF52 --chiperase --reset --verify && "C:\Program Files\Nordic Semiconductor\nrf-command-line-tools\bin\nrfjprog.exe" --memwr 0xFF000 --val 0x01 && "C:\Program Files\Nordic Semiconductor\nrf-command-line-tools\bin\nrfjprog.exe" --reset --program build\adafruit.nrf52.feather52840\nRF52840_firmware.ino.hex --sectorerase --family NRF52 --verify
 
