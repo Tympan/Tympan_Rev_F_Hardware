@@ -75,9 +75,13 @@ In the Bluefruit Connect App, search for and connect to your Tympan board. Selec
 It is advised to close the Adafruit App after the upload process is complete, and then restart if you intend to use it again right away.
 
 ## Compiling the Fimrware
-Ideally, you do not need to compile the firmware; you would just use the pre-compiled HEX file already included with this repository.  But, if you do need to re-compile, you will need to install the Arduino IDE. 
- Then, via the Arduino "Boards Manager", install support for "Adafruit nRF52".  Finally, clone this "Tympan Rev F Hardware" repo to your local computer to get the existing source code for our nRF52840 firmware.
+Ideally, you do not need to compile the firmware; you would just use the pre-compiled HEX file already included with this repository.  But, if you do need to re-compile:
+* Install the Arduino IDE.
+* Via the Arduino "Boards Manager", install support for "Adafruit nRF52".
+* Cone this "Tympan Rev F Hardware" repo to your local computer
  
-Once everything is installed, use the Arduino IDE to open "nRF52840_firmware.ino" that is here in the Tympan Rev F repository.  Next, you need to tell the Arduino IDE what hardware you are programming for.  So, under the "Tools" menu, choose "Board" and set it to "Adafruit Feather nRF52840 Express".  Now you can make any changes you want to the code.  When done, compile.
+Once everything is installed, use the Arduino IDE to open "nRF52840_firmware.ino" that is here in the Tympan Rev F repository.  You need to tell the Arduino IDE what hardware you are programming for:
+* Under the "Tools" menu, choose "Board" and set it to "Adafruit Feather nRF52840 Express".
 
-Be aware that you cannot upload the firmware to the nRF52840 on the Tympan from the Arduino IDE.  Instead, you must use the "hardware connection" or "over the air" methods described in the sections above.  For either method, you must ask the Arduino IDE to "Export Compiled Binary" via the "Sketch" menu.  The HEX and DAT files will be produced in the "build" directory within the sketch's directory.
+Now you can make any changes you want to the code.  When done, compile.  The Arduino IDE cannot upload the firmware directly to the nRF58240 in the Tympan.  Instead, you must use the "hardware connection" or "over the air" methods described in the sections above. To get the HEX and DAT files for these methods:
+* In the Arduino IDE, under the "Sketch" menu, choose "Export Compiled Binary"
