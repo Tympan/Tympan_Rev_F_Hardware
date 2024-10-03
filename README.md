@@ -81,7 +81,7 @@ Ideally, you do not need to compile the firmware; you would just use the pre-com
   * In the Arduino IDE, go under the File menu and choose "Preferences"
   * Under "Additional Board Manager URL", add https://adafruit.github.io/arduino-board-index/package_adafruit_index.json
   * Restart the Arduino IDE
-  * Open the Boards Manager from the Tools -> Board menu and install 'Adafruit nRF52 by Adafruit'
+  * Open the Boards Manager from the Tools -> Board menu and install "Adafruit nRF52 by Adafruit" (this might take a few minutes)
 * Clone this "Tympan Rev F Hardware" repo to your local computer
  
 Once everything is installed, use the Arduino IDE to open "nRF52840_firmware.ino" that is here in the Tympan Rev F repository.  You need to tell the Arduino IDE what hardware you are programming for:
