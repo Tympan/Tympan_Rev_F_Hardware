@@ -40,7 +40,7 @@ Adafruit also sells a [low-cost J-Link](https://www.adafruit.com/product/3571) f
 
 ## Programming With Hardware Connection
 
-There are a couple of routes through different toolchains that are available to bootload the nRF52 module using the J-link. Our current method uses Command Line Tools from Nordic, the makers of the nRF52 chipset. Download the [Command Line Tools](https://www.nordicsemi.com/Products/Development-tools/nrf-command-line-tools/download), and install them to `Program Files (x86)`
+There are a couple of routes through different toolchains that are available to bootload the nRF52 module using the J-link. Our current method uses Command Line Tools from Nordic, the makers of the nRF52 chipset. Download the [Command Line Tools](https://www.nordicsemi.com/Products/Development-tools/nrf-command-line-tools/download), and install them to `Program Files (x86)`. You will also need one element of the Adafruit nRF52 toolset, which means that you need to install it, as described later under "Compiling the Firmware"
 
 **>>> NOTE: This tutorial currently only supports Windows OS**
 
@@ -74,3 +74,8 @@ In the Bluefruit Connect App, search for and connect to your Tympan board. Selec
 
 It is advised to close the Adafruit App after the upload process is complete, and then restart if you intend to use it again right away.
 
+## Compiling the Fimrware
+Ideally, you do not need to compile the firmware; you would just use the pre-compiled HEX file already included with this repository.  But, if you do need to re-compile, you will need to install the Arduino IDE. 
+ Then, via the Arduino "Boards Manager", install support for "Adafruit nRF52".  Finally, clone this "Tympan Rev F Hardware" repo to your local computer to get the existing source code for our nRF52840 firmware.
+ 
+Once everything is installed, open "nRF52840_firmware.ino" in the Arduino IDE.  Make the changes that you'd like.  Under the "Tools" menu, choose "Board" and set it to "Adafruit Feather nRF52840 Express".  Compile.  Be aware that you cannot upload the firmware to the nRF52840 on the Tympan from the Arduino IDE.  You must use the hardware connection or over-the-air connection as described in the sections above.  To enable either method, you must ask the Arduino IDE to "Export Compiled Binary" via the "Sketch" menu.  The HEX and DAT files will be produced in the "build" directory within the sketch's directory.
