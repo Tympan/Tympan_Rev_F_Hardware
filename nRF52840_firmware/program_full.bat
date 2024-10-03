@@ -15,10 +15,21 @@
 :: Also, the command below assumes that your arduino sketch holding your nRF52840 firmware is
 :: titled "nR52840_firmware.ino".  The HEX file resulting from the compilation step is named
 :: "nRF52840_fimrware.ino.hex", so if you rename your *.ino, the *.hex will change, too.  You'll
-:: have to change the command below to use the new name
-::
+:: have to change the command below to use the new name4ertghjnmk,./
+::1
 :: When trying to program the device, it must be in the programming nest and the Tympan must
 :: be turned on.  So, it must have its battery or plugged into USB.
 
-"C:\Program Files\Nordic Semiconductor\nrf-command-line-tools\bin\nrfjprog.exe" --program "%LOCALAPPDATA%\Arduino15\packages\adafruit\hardware\nrf52\1.6.1\bootloader\feather_nrf52840_express\feather_nrf52840_express_bootloader-0.9.0_s140_6.1.1.hex" --family NRF52 --chiperase --reset --verify && "C:\Program Files\Nordic Semiconductor\nrf-command-line-tools\bin\nrfjprog.exe" --memwr 0xFF000 --val 0x01 && "C:\Program Files\Nordic Semiconductor\nrf-command-line-tools\bin\nrfjprog.exe" --reset --program build\adafruit.nrf52.feather52840\nRF52840_firmware.ino.hex --sectorerase --family NRF52 --verify
+@echo off
+:: Set Path to nRF command line tool
+path "C:\Program Files\Nordic Semiconductor\nrf-command-line-tools\bin\"
 
+:: Store path to adafruit nRF Bootloader v1.6.1
+set bootloaderHex=%LOCALAPPDATA%\Arduino15\packages\adafruit\hardware\nrf52\1.6.1\bootloader\feather_nrf52840_express\feather_nrf52840_express_bootloader-0.9.0_s140_6.1.1.hex
+
+:: Store path to Adafruit nRF52840 firmware 
+set fwPath=build\adafruit.nrf52.feather52840\nRF52840_firmware.ino.hex
+
+nrfjprog.exe --program %bootloaderHex% --family NRF52 --chiperase --reset --verify && ^
+nrfjprog.exe --memwr 0xFF000 --val 0x01 && ^
+nrfjprog.exe --reset --program %fwPath% --sectorerase --family NRF52 --verify
