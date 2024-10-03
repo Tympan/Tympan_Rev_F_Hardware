@@ -1,6 +1,10 @@
 # Tympan Rev F Hardware
 Tympan Rev F Hardware Design Files For First Production Run, Februrary, 2024.
 
+Tympan is Certified Open Source Hardware!
+
+![Certification Mark](assets/certification-mark-US002660-stacked.png)
+
 ## Changes From Rev E
 For the most part, the design of Rev F is a clone of Rev E. The primary challenge of producing Rev E is that the BC127 BLE Radio module we used is not longer available (Product End Of Life). Here are the major changes in the hardware
 
@@ -36,7 +40,7 @@ Adafruit also sells a [low-cost J-Link](https://www.adafruit.com/product/3571) f
 
 ## Programming With Hardware Connection
 
-There are a couple of routes through different toolchains that are available to bootload the nRF52 module using the J-link. Our current method uses Command Line Tools from Nordic, the makers of the nRF52 chipset. Download the [Command Line Tools](https://www.nordicsemi.com/Products/Development-tools/nrf-command-line-tools/download), and install them to `Program Files (x86)`
+There are a couple of routes through different toolchains that are available to bootload the nRF52 module using the J-link. Our current method uses Command Line Tools from Nordic, the makers of the nRF52 chipset. Download the [Command Line Tools](https://www.nordicsemi.com/Products/Development-tools/nrf-command-line-tools/download), and install them to `Program Files (x86)`. You will also need one element of the Adafruit nRF52 toolset, which means that you need to install it, as described later under "Compiling the Firmware"
 
 **>>> NOTE: This tutorial currently only supports Windows OS**
 
@@ -70,3 +74,14 @@ In the Bluefruit Connect App, search for and connect to your Tympan board. Selec
 
 It is advised to close the Adafruit App after the upload process is complete, and then restart if you intend to use it again right away.
 
+## Compiling the Fimrware
+Ideally, you do not need to compile the firmware; you would just use the pre-compiled HEX file already included with this repository.  But, if you do need to re-compile:
+* Install the Arduino IDE.
+* Via the Arduino "Boards Manager", install support for "Adafruit nRF52".
+* Cone this "Tympan Rev F Hardware" repo to your local computer
+ 
+Once everything is installed, use the Arduino IDE to open "nRF52840_firmware.ino" that is here in the Tympan Rev F repository.  You need to tell the Arduino IDE what hardware you are programming for:
+* Under the "Tools" menu, choose "Board" and set it to "Adafruit Feather nRF52840 Express".
+
+Now you can make any changes you want to the code.  When done, compile.  The Arduino IDE cannot upload the firmware directly to the nRF58240 in the Tympan.  Instead, you must use the "hardware connection" or "over the air" methods described in the sections above. To get the HEX and DAT files for these methods:
+* In the Arduino IDE, under the "Sketch" menu, choose "Export Compiled Binary"
