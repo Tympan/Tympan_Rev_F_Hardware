@@ -25,7 +25,7 @@ Any updates to the application software can be done over Bluetooth using Over Th
 
 ![Bluefruit App](assets/BluefruitApp.png)
 
-You will also need two files to upload which Arduino makes when. One is the `.hex` file, The other is a `.dat` file. The latest version of our Tympan Radio firmware is published as a release on this repository, which you can download [HERE](). Both of these files need to be accessible on the phone, or tablet, that you intend to use to perform the OTA DFU. When you have the files on your mobile device, open up the Bluefruit App, and connect to the Tympan that you want to update. Each Tympan advertises it's name followed by a unique ID. Click on connect.
+You will also need two files to upload which Arduino makes when. One is the `.hex` file, The other is a `.dat` file. The latest version of our Tympan Radio firmware is published as a release on this repository, which you can download [HERE](https://github.com/Tympan/Tympan_Rev_F_Hardware/releases/tag/v0.3.0). Both of these files need to be accessible on the phone, or tablet, that you intend to use to perform the OTA DFU. When you have the files on your mobile device, open up the Bluefruit App, and connect to the Tympan that you want to update. Each Tympan advertises it's name followed by a unique ID. Click on connect.
 
 ![Connect to Tympan](assets/SelectTympan.png)
 
