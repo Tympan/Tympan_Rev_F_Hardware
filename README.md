@@ -18,9 +18,40 @@ For the most part, the design of Rev F is a clone of Rev E. The primary challeng
 	- The SPI_1 bus is connected to nRF module for higher speed
 	- The UART pins are still connected
 
+# Programming The Radio Module
 
-## Programming The Radio Module
-## Hardware Requirements
+## Over The Air Firmware Updates
+Any updates to the application software can be done over Bluetooth using Over The Air Device Firmware Update (OTA DFU). This tutorial will use Adafruit's Bluefruit Connect app, which is available for iPhone and Android.
+
+![Bluefruit App](assets/BluefruitApp.png)
+
+You will also need two files to upload which Arduino makes when. One is the `.hex` file, The other is a `.dat` file. The latest version of our Tympan Radio firmware is published as a release on this repository, which you can download [HERE](). Both of these files need to be accessible on the phone, or tablet, that you intend to use to perform the OTA DFU. When you have the files on your mobile device, open up the Bluefruit App, and connect to the Tympan that you want to update. Each Tympan advertises it's name followed by a unique ID. Click on connect.
+
+![Connect to Tympan](assets/SelectTympan.png)
+
+After connecting, the app will show you various tools. Scroll to the bottom and select the Updates tool.
+
+![Select Updates](assets/SelectUpdates.png)
+
+There is a long list of updates that are for Adafruit's BLE products. Scroll all the way to the bottom and select Custom Firmware.
+
+![Select Custom Firmware](assets/SelectUseCustomFirmware.png) 
+
+The pop-up window will ask you to choose the Hex and Init files. Navigate to the place where you have stored the files you downloaded from our latest release. Choose our hex file for the .hex, and our dat file for the Init file.
+
+![Choose Files](assets/SelectHexDatFiles.png)
+
+When you press START UPDATE, the process will begin, and the upload will show a progress bar.
+
+![Upload Progress](assets/UploadProgress.png)
+
+That's it! After successful upload, your Tympan Radio will be running the latest and greatest firmware version. If you want to continue to use the Bluefruit App, it is advised to close the close it after the upload process is complete, and then restart if you intend to use it again right away.
+
+
+
+# Wired Firmware Updates
+
+**NOTE: This method is included here for completion. OTA DFU should suffice of all updates**
 
 The blank nRF52 module is programmable using the j-Link connection on pins SWO, SWCLK, SWDIO, RESET, 3V3, and GND. Those module pins are broken out to a header row on the bottom of the board. See connector J7 in the schematic, and the 6 SMT pads on the back layer of the PCB design.
 
@@ -61,18 +92,6 @@ Open a Command Prompt window, and navigate to `C:\Program Files (x86)\Nordic Sem
 
 The first command flashes the bootloader and the Bluetooth soft device. The second command sets a bit in 0xFF000 in order to bypass 'virgin program' hurdle. The third command programs the application software. 
 
-## Over The Air Firmware Updates
-Any updates to the application software can be done over Bluetooth using Over The Air Device Firmware Update (OTA DFU). This tutorial will currently cover one method for doing this, using Adafruit's Bluefruit Connect app. You need two files to upload which Arduino makes when you click on `Sketch > Export Compiled Binary`. One is the `.hex` file, The other is a `.dat` file. The `.dat` file is contained inside the compressed `.zip` file that was also produced by the compile binary command. Unzip compressed folder, and find the `.dat` file inside of it. Both of these files need to be accessible on the phone, or tablet, or computorb, that you intend to use to perform the OTA DFU.
-
-**NOTE: Your Sketch MUST include the following code to ensure that OTA DFU is persistent!
-After your #includes on the main .ino tab activate the DFU Service
-`BLEDfu  bledfu;`
-then, during the setup() turn on the OTA DFU Service
-`bledfu.begin();` Check out the code in TympanRadio_baseFirmware.ino for how it's done.**
-
-In the Bluefruit Connect App, search for and connect to your Tympan board. Select Updates then scroll all the way down to the USE CUSTOM FIRMWARE button way down there, and press it. You will be prompted to find a "Hex File" and an "Init File". The "Hex" is the `.hex` and the "Init" is the `.dat` that we discussed in the previous paragraph. Then press "Start Update". The process can take some time, but there is a status bar that should animate the progress. 
-
-It is advised to close the Adafruit App after the upload process is complete, and then restart if you intend to use it again right away.
 
 ## Compiling the Firmware
 Ideally, you do not need to compile the firmware; you would just use the pre-compiled HEX file already included with this repository.  But, if you do need to re-compile:
