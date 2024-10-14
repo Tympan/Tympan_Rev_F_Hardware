@@ -3,7 +3,7 @@ Tympan Rev F Hardware Design Files For First Production Run, Februrary, 2024.
 
 Tympan is Certified Open Source Hardware!
 
-![Certification Mark](assets/certification-mark-US002660-stacked.png)
+<img src="assets/certification-mark-US002660-stacked.png" alt="Certification Mark" width="500">
 
 ## Changes From Rev E
 For the most part, the design of Rev F is a clone of Rev E. The primary challenge of producing Rev E is that the BC127 BLE Radio module we used is not longer available (Product End Of Life). Here are the major changes in the hardware
@@ -23,27 +23,27 @@ For the most part, the design of Rev F is a clone of Rev E. The primary challeng
 ## Over The Air Firmware Updates
 Any updates to the application software can be done over Bluetooth using Over The Air Device Firmware Update (OTA DFU). This tutorial will use Adafruit's Bluefruit Connect app, which is available for iPhone and Android.
 
-![Bluefruit App](assets/BluefruitApp.png)
+<img src="assets/BluefruitApp.png" alt="Bluefruit App" width="300">
 
-You will also need two files to upload which Arduino makes when. One is the `.hex` file, The other is a `.dat` file. The latest version of our Tympan Radio firmware is published as a release on this repository, which you can download [HERE](https://github.com/Tympan/Tympan_Rev_F_Hardware/releases/tag/v0.3.0). Both of these files need to be accessible on the phone, or tablet, that you intend to use to perform the OTA DFU. When you have the files on your mobile device, open up the Bluefruit App, and connect to the Tympan that you want to update. Each Tympan advertises it's name followed by a unique ID. Click on connect.
+You will also need two files to upload which Arduino makes when. One is the `.hex` file, The other is a `.dat` file. The latest version of our Tympan Radio firmware is published as a release on this repository, which you can download [HERE](https://github.com/Tympan/Tympan_Rev_F_Hardware/archive/refs/tags/v0.3.0.zip) The link will start downloading a zip with the necessary files inside it. Both of these files need to be accessible on the phone, or tablet, that you intend to use to perform the OTA DFU. When you have the files on your mobile device, open up the Bluefruit App, and connect to the Tympan that you want to update. Each Tympan advertises it's name followed by a unique ID. Click on connect.
 
-![Connect to Tympan](assets/SelectTympan.png)
+<img src="assets/SelectTympan.png" alt="Connect to Tympan" width="300">
 
 After connecting, the app will show you various tools. Scroll to the bottom and select the Updates tool.
 
-![Select Updates](assets/SelectUpdates.png)
+<img src="assets/SelectUpdates.png" alt="Select Updates" width="300">
 
 There is a long list of updates that are for Adafruit's BLE products. Scroll all the way to the bottom and select Custom Firmware.
 
-![Select Custom Firmware](assets/SelectUseCustomFirmware.png) 
+<img src="assets/SelectUseCustomFirmware.png" alt="Select Custom Firmware" width="300">
 
 The pop-up window will ask you to choose the Hex and Init files. Navigate to the place where you have stored the files you downloaded from our latest release. Choose our hex file for the .hex, and our dat file for the Init file.
 
-![Choose Files](assets/SelectHexDatFiles.png)
+<img src="assets/BluefruitApp.png" alt="Bluefruit App" width="300">
 
 When you press START UPDATE, the process will begin, and the upload will show a progress bar.
 
-![Upload Progress](assets/UploadProgress.png)
+<img src="assets/SelectHexDatFiles.png" alt="Upload Progress" width="300">
 
 That's it! After successful upload, your Tympan Radio will be running the latest and greatest firmware version. If you want to continue to use the Bluefruit App, it is advised to close the close it after the upload process is complete, and then restart if you intend to use it again right away.
 
@@ -55,9 +55,9 @@ That's it! After successful upload, your Tympan Radio will be running the latest
 
 The blank nRF52 module is programmable using the j-Link connection on pins SWO, SWCLK, SWDIO, RESET, 3V3, and GND. Those module pins are broken out to a header row on the bottom of the board. See connector J7 in the schematic, and the 6 SMT pads on the back layer of the PCB design.
 
-![nRF52 shematic](assets/nRF52_schem.png)
+<img src="assets/nRF52_schem.png" alt="nRF52 shematic" width="500">
 -
-![J-Link Pads](assets/Rev_E_Bottom.png)
+<img src="assets/Rev_E_Bottom.png" alt="J-Link Pads" width="500">
 
 ### Programming Fixture
 
