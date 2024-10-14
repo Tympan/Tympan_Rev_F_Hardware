@@ -37,11 +37,7 @@ There is a long list of updates that are for Adafruit's BLE products. Scroll all
 
 <img src="assets/SelectUseCustomFirmware.png" alt="Select Custom Firmware" width="300">
 
-The pop-up window will ask you to choose the Hex and Init files. Navigate to the place where you have stored the files you downloaded from our latest release. Choose our hex file for the .hex, and our dat file for the Init file.
-
-<img src="assets/BluefruitApp.png" alt="Bluefruit App" width="300">
-
-When you press START UPDATE, the process will begin, and the upload will show a progress bar.
+The pop-up window will ask you to choose the Hex and Init files. Navigate to the place where you have stored the files you downloaded from our latest release. Choose our hex file for the .hex, and our dat file for the Init file. When you press START UPDATE, the process will begin, and the upload will show a progress bar.
 
 <img src="assets/SelectHexDatFiles.png" alt="Upload Progress" width="300">
 
