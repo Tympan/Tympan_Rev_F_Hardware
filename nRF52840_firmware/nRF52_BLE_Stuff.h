@@ -19,8 +19,8 @@ uint8_t characteristicUUID[] = {  0x3C, 0xD9, 0xF7, 0x89, 0x37, 0x37, 0xAA, 0x8F
 BLECharacteristic myBleChar = BLECharacteristic(characteristicUUID, BLENotify | BLEWrite); //from #include <bluefruit.h>
 
 //   vvvvv  VERSION INDICATION  vvvvv
-const char versionString[] = "TympanBLE v0.3.0, nRF52840";
-char deviceName[] = "Tympan-TACO"; // gets modified with part of the uniqueID
+const char versionString[] = "TympanBLE v0.3.1, nRF52840";
+char deviceName[] = "TympanF-TACO"; // gets modified with part of the uniqueID
 const char manufacturerName[] = "Flywheel Lab";
 
 // BLE
@@ -157,10 +157,10 @@ void setupBLE(){
   Bluefruit.setTxPower(4);    // Check bluefruit.h for supported values
   uniqueID = getMcuUniqueID();
   // unique ID has 16 HEX characters!
-  deviceName[7] = uniqueID.charAt(11); // [10];
-  deviceName[8] = uniqueID.charAt(12); // [11];
-  deviceName[9] = uniqueID.charAt(13); // [12];
-  deviceName[10] = uniqueID.charAt(14); // [13];
+  deviceName[8] = uniqueID.charAt(11); // [10];
+  deviceName[9] = uniqueID.charAt(12); // [11];
+  deviceName[10] = uniqueID.charAt(13); // [12];
+  deviceName[11] = uniqueID.charAt(14); // [13];
   Bluefruit.setName(deviceName);
   Bluefruit.Periph.setConnectCallback(connect_callback);
   Bluefruit.Periph.setDisconnectCallback(disconnect_callback);
