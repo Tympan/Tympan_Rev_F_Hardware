@@ -11,6 +11,9 @@
 // #define OUT_STRING_LENGTH 201
 // #define NUM_BUF_LENGTH 11
 
+ble_gap_addr_t this_gap_addr;
+#define MAC_NBYTES 6
+
 // ID Strings to be used by the nRF52 firmware to enable recognition by Tympan Remote App
 //String serviceUUID = String("BC-2F-4C-C6-AA-EF-43-51-90-34-D6-62-68-E3-28-F0");
 //String characteristicUUID = String("06-D1-E5-E7-79-AD-4A-71-8F-AA-37-37-89-F7-D9-3C");
@@ -19,24 +22,18 @@ uint8_t characteristicUUID[] = {  0x3C, 0xD9, 0xF7, 0x89, 0x37, 0x37, 0xAA, 0x8F
 BLECharacteristic myBleChar = BLECharacteristic(characteristicUUID, BLENotify | BLEWrite); //from #include <bluefruit.h>
 
 //   vvvvv  VERSION INDICATION  vvvvv
-const char versionString[] = "TympanBLE v0.3.1, nRF52840";
+const char versionString[] = "TympanBLE v0.4.0, nRF52840";
 char deviceName[] = "TympanF-TACO"; // gets modified with part of the uniqueID
 const char manufacturerName[] = "Flywheel Lab";
 
 // BLE
 uint16_t handle;
-//char tempCharArray[MESSAGE_LENGTH];
-//int tempCounter;
 char BLEmessage[MESSAGE_LENGTH];
 boolean bleConnected = false;
-//boolean printedBLEhelp = false;
+boolean bleBegun = false;
 String uniqueID = "DEADBEEFCAFEDATE"; // [16]; // used to gather the 'serial number' of the chip
-//char bleInBuffer[MESSAGE_LENGTH];  // incoming BLE buffer
-//char bleOutBuffer[MESSAGE_LENGTH]; // outgoing BLE buffer
 char bleInChar;  // incoming BLE char
-//int bleBufCounter = 0;
-//char outString[OUT_STRING_LENGTH];			
-//char numberBuffer[NUM_BUF_LENGTH];
+BLEService *serviceToAdvertise;
 
 //Create the nRF52 BLE elements (the firmware on the nRF BLE Hardware itself)
 BLEDfu          bledfu;  // Adafruit's built-in OTA DFU service
@@ -45,6 +42,22 @@ BLEUart_Tympan  bleService_tympanUART;    //Tympan extension of the Adafruit UAR
 BLEUart         bleService_adafruitUART;  //Adafruit's built-in UART service
 //nRF52_AT_API    AT_interpreter(&bleService_tympanUART, &SERIAL_TO_TYMPAN);  //interpreter for the AT command set that we're inventing
 nRF52_AT_API    AT_interpreter(&bleService_tympanUART, &bleService_adafruitUART, &SERIAL_TO_TYMPAN);  //interpreter for the AT command set that we're inventing
+
+// Define an common interface for a BLE service with characteristics
+class BLE_Service_Preset {
+  public:
+    BLE_Service_Preset(void) {}
+    virtual ~BLE_Service_Preset(void) {};
+    virtual int setup(int id) { service_id = id; return 0; }
+    virtual uint16_t write(const int char_id, const uint8_t* data, uint16_t len) = 0;
+    virtual uint16_t notify(const int char_id, const uint8_t* data, uint16_t len) = 0;
+    int service_id = 0; //will get overwritten when actually setup
+};
+#define MAX_N_PRESET_SERVICES 10
+BLE_Service_Preset * all_service_presets[MAX_N_PRESET_SERVICES];
+#include "Preset_LedService.h"
+PRESET_LedButtonService_4bytes PRESET_lbs_4bytes;
+
 
 // callback invoked when central connects
 void connect_callback(uint16_t conn_handle)
@@ -145,23 +158,17 @@ void serialEvent(HardwareSerial *serial_from_tympan) { //for the nRF firmware, s
     }
  }
 
-void setupBLE(){
-  // Disable pin 19 LED function. We don't use pin 19
-  Bluefruit.autoConnLed(false);
-  // Config the peripheral connection with maximum bandwidth
-  // more SRAM required by SoftDevice
-  // Note: All config***() function must be called before begin()
-  Bluefruit.configPrphBandwidth(BANDWIDTH_MAX);
-  // other config***() ??
-  Bluefruit.begin();
-  Bluefruit.setTxPower(4);    // Check bluefruit.h for supported values
-  uniqueID = getMcuUniqueID();
-  // unique ID has 16 HEX characters!
-  deviceName[8] = uniqueID.charAt(11); // [10];
-  deviceName[9] = uniqueID.charAt(12); // [11];
-  deviceName[10] = uniqueID.charAt(13); // [12];
-  deviceName[11] = uniqueID.charAt(14); // [13];
+
+void beginAllBleServices(int setup_config_id) {
+  bleBegun = true;
+  // set the MAC address
+  Bluefruit.setAddr(&this_gap_addr);
+
+  //set the unique (has 16 HEX characters)!
+  if (DEBUG_VIA_USB) { Serial.print("nRF52840 Firmware: setting BLE name: "); Serial.println(deviceName); };
   Bluefruit.setName(deviceName);
+  
+  //setup the connect and disconnect callbacks
   Bluefruit.Periph.setConnectCallback(connect_callback);
   Bluefruit.Periph.setDisconnectCallback(disconnect_callback);
 
@@ -180,20 +187,97 @@ void setupBLE(){
   bleService_tympanUART.setCharacteristicUuid(myBleChar);
   bleService_tympanUART.begin();
 
-  // Start our custom service ...this is all now done in bleService_tympanUART.begin();
-  //myBleChar.setProperties(CHR_PROPS_NOTIFY);  //is this needed?
-  //myBleChar.setPermission(SECMODE_OPEN, SECMODE_NO_ACCESS); //is this needed?
-  //myBleChar.begin();
+  // Start any pre-defined custom services 
+  serviceToAdvertise = &bleService_tympanUART; //default assumption
+  switch (setup_config_id) {
+    case 0:
+      //assume that this is associated with never having activated any services
+      break;
+    case 1:
+      //assume this is the default mode of operation
+      break;
+    case 2:
+      //eventually to implement: use Adafruit-standard BLE-UART instead of Tympan-specific UART
+      serviceToAdvertise = &bleService_adafruitUART;
+      break;
+    case 3:
+      //enable "LED Service"
+      PRESET_lbs_4bytes.setup(setup_config_id);
+      serviceToAdvertise = PRESET_lbs_4bytes.getServiceToAdvertise();
+      if (setup_config_id < MAX_N_PRESET_SERVICES) all_service_presets[setup_config_id] = &PRESET_lbs_4bytes;
+      break;
+  }
+
+  //start advertising
+  startAdv();
+ }
+
+void setupBLE(){
+  // Disable pin 19 LED function. We don't use pin 19
+  Bluefruit.autoConnLed(false);
+  // Config the peripheral connection with maximum bandwidth
+  // more SRAM required by SoftDevice
+  // Note: All config***() function must be called before begin()
+  Bluefruit.configPrphBandwidth(BANDWIDTH_MAX);
+  // other config***() ??
+
+  //start the basic BLE stuff (not the services) and populate the intitial names
+  Bluefruit.begin(); 
+  Bluefruit.setTxPower(4);    // Check bluefruit.h for supported values
+
+  //get the default MAC
+  Bluefruit.getAddr(this_gap_addr.addr);
+  // Serial.println("nRF62_BLE_Stuff: beginAllBleServices: init_mac: ");
+  // for (int I=0; I<MAC_NBYTES; I++) Serial.print(this_gap_addr.addr[MAC_NBYTES-1-I],HEX);
+  // Serial.println();
+
+  //set the default name
+  deviceName[8] = uniqueID.charAt(11); // [10];
+  deviceName[9] = uniqueID.charAt(12); // [11];
+  deviceName[10] = uniqueID.charAt(13); // [12];
+  deviceName[11] = uniqueID.charAt(14); // [13];
+
+  //this sets up all the BLE services and characteristics
+  //beginAllBleServices();
+}
+
+uint8_t hexCharToNibble(char c) {
+    if (c >= '0' && c <= '9') {
+        return (uint8_t)(c - '0');
+    } else if (c >= 'A' && c <= 'F') {
+        return (uint8_t)(c - 'A' + 10);
+    } else if (c >= 'a' && c <= 'f') {
+        return (uint8_t)(c - 'a' + 10);
+    } else { //invalid
+        return 0; 
+    }
+}
+
+uint8_t hexCharsToByte(char c1, char c2) {
+  return (hexCharToNibble(c1) << 4) + hexCharToNibble(c2);
+}
+
+void setMacAddress(char* addr_chars) {
+  this_gap_addr.addr_type=BLE_GAP_ADDR_TYPE_PUBLIC;
+
+  //convert hexidecimal characters to bytes...and reverse the order of the bytes
+  for (int Ibyte = 0; Ibyte < 6; Ibyte++) {
+    char c1 = addr_chars[Ibyte*2];
+    char c2 = addr_chars[Ibyte*2+1];
+    this_gap_addr.addr[MAC_NBYTES-1-Ibyte]=hexCharsToByte(c1,c2);
+  }
+
+  //the MAC will actually get set when the services are started
 }
 
 void startAdv(void)
 {
+  if (bleBegun == false)  return;
+
   // Advertising packet
   Bluefruit.Advertising.addFlags(BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE);
   Bluefruit.Advertising.addTxPower();
-  // Include bleuart 128-bit uuid
-  //Bluefruit.Advertising.addService(bleService_adafruitUART); //is this necessary?
-  Bluefruit.Advertising.addService(bleService_tympanUART);   //this one is necessary for the TympanRemote App to see this device
+  Bluefruit.Advertising.addService(*serviceToAdvertise); //set which BLE service to advertise
 
   //Bluefruit.Advertising.addService(myBleService);
   // Add 'Name' to Advertising packet
@@ -218,4 +302,45 @@ void stopAdv(void) {
   Bluefruit.Advertising.stop();
 }
 
+
+void sendBleDataByServiceAndChar(int command, int service_id, int char_id, int nbytes, const uint8_t *databytes) {
+  if (DEBUG_VIA_USB) { 
+      Serial.print("sendBleDataByServiceAndChar: BLE Command " + String(command) + ", service = " + String(service_id));
+      Serial.print(", char " + String(char_id) + ", nbytes = " + String(nbytes));
+      Serial.print(", data bytes = "); Serial.write(databytes, nbytes);
+      Serial.println();
+  }
+  //find the service that matches
+  int Iservice = 0;
+  bool data_sent = false;
+  while (Iservice < MAX_N_PRESET_SERVICES) {
+    BLE_Service_Preset *service_ptr = all_service_presets[Iservice];
+    if (!service_ptr) {
+      //this is not a valid service pointer
+      //Serial.println("sendBleDataByServiceAndChar: comparing given service_id " + String(service_id) + " to UNINITIALIZED preset service");
+    } else {
+      //this is a valid service pointer
+      //Serial.println("sendBleDataByServiceAndChar: comparing given service_id " + String(service_id) + " to preset service " + String(service_ptr->service_id));
+      if (service_ptr->service_id == service_id) {
+        if (command == 1) {
+          if (DEBUG_VIA_USB) {
+            Serial.print("sendBleDataByServiceAndChar: BLE WRITE to characteristic " + String(char_id) + ", data = ");
+            Serial.write(databytes, nbytes);
+            Serial.println();
+          }
+          service_ptr->write(char_id, databytes,nbytes); data_sent = true;
+        } else if (command == 2) {
+          if (DEBUG_VIA_USB) {
+            Serial.print("sendBleDataByServiceAndChar: BLE NOTIFY to characteristic " + String(char_id) + ", data = ");
+            Serial.write(databytes, nbytes); 
+            Serial.println(); 
+          }
+          service_ptr->notify(char_id, databytes,nbytes);data_sent = true;
+        }
+      }
+    }
+    Iservice++;  //increment to look at next service in the list
+  }
+  if ((data_sent == false) && DEBUG_VIA_USB) Serial.println("sendBleDataByServiceAndChar: data NOT sent to service " + String(service_id) + " because no matching service ID found");
+}
 

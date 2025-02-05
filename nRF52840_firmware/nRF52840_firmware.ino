@@ -33,7 +33,7 @@
     Extended by Chip Audette, Benchtop Engineering, for Creare LLC, February 2024
  */
 
-#define DEBUG_VIA_USB false
+#define DEBUG_VIA_USB true
 
 #define SERIAL_TO_TYMPAN Serial1                 //use this when physically wired to a Tympan. Assumes that the nRF is connected via Serial1 pins
 #define SERIAL_FROM_TYMPAN Serial1               //use this when physically wired to a Tympan. Assumes that the nRF is connected via Serial1 pins
@@ -54,15 +54,34 @@ LED_controller led_control;
 
 void printHelpToUSB(void) {
   Serial.println("nRF52840 Firmware: Help:");
-  Serial.print("   : Version string: "); Serial.println(versionString);
-  Serial.print("   : bleConnected: "); Serial.println(bleConnected);
+  Serial.print(  "   : Version string: "); Serial.println(versionString);
+  Serial.println(" : Status:");
+  Serial.print(  "   : bleBegun: "); Serial.println(bleBegun);
+  Serial.print(  "   : bleConnected: "); Serial.println(bleConnected);
   Serial.println("   : Send 'h' via USB to get this help");
+  if (bleBegun == false) {
+    Serial.println(" : Configuration:");
+    Serial.println("   : Send 'M' to set MAC address to AABBCCEEDDFF");
+    Serial.println("   : Send 'b' or 'B' to begin the BE services (default, mode=1)");
+    Serial.println("   : Send 'g' or 'G' to begin the BE services (mode=3)");
+  }
+  Serial.println(" : Trial Commands:");
   Serial.println("   : Send 'J' via USB to send 'J' to the Tympan");
+  Serial.println("   : Send '1' to send AT command 'BLENOTIFY 1 1 1 9");
+  Serial.println("   : Send '4' to send AT command 'BLENOTIFY 3 0 4 1234");
+  Serial.println("   : Send '5' to send AT command 'BLENOTIFY 3 1 4 5678");
 }
 
 void setupGPIO(void) {
   pinMode(GPIO_for_isConnected, OUTPUT);
   digitalWrite(GPIO_for_isConnected, LOW);
+}
+
+void issueATCommand(const String &str) {
+  if (DEBUG_VIA_USB) Serial.println("nRF52840 Firmware: seding to be interpreted as AT command: " + str);            
+  for (int i=0; i<str.length(); i++) AT_interpreter.processSerialCharacter(str[i]);
+  if (str[str.length()-1] != '\r') AT_interpreter.processSerialCharacter('\r');  //add carriage return
+
 }
 
 void setup(void) {
@@ -71,7 +90,7 @@ void setup(void) {
     //Start up USB serial for debugging
     Serial.begin(115200);
     unsigned long t = millis();
-    int timeOut = 5000; // 5 second time out before we bail on a serial connection
+    int timeOut = 2000; // 5 second time out before we bail on a serial connection
     while (!Serial) { // use this to allow for serial to time out
       if(millis() - t > timeOut)  break;  //break out of waiting
     }
@@ -95,10 +114,8 @@ void setup(void) {
   led_control.setLedColor(led_control.red);
   
   //setup BLE and begin
-  setupBLE();  
-  startAdv();  // start advertising
-
-  if (DEBUG_VIA_USB) { Serial.print("nRF52840 Firmware: Bluetooth name: "); Serial.println(deviceName); };
+  setupBLE();    //as of Feb 2025, does not automatically start the BLE services
+  //startAdv();  // start advertising
 }
 
 
@@ -108,13 +125,40 @@ void loop(void) {
   if (DEBUG_VIA_USB) {
     if (Serial.available()) {
       char c = Serial.read();
+      //Serial.print("Received Character via USB: " + String(c));
       switch (c) {
         case 'h': case '?':
           printHelpToUSB();
           break;
+        case 'b':
+          Serial.println("nRF52840 Firmware: starting all BLE services (default)...");
+          beginAllBleServices(1);
+          break;
+        case 'B':
+          issueATCommand(String("SET BEGIN=1"));
+          break;
+        case 'g':
+          Serial.println("nRF52840 Firmware: starting all BLE services (preset=3)...");
+          beginAllBleServices(3);
+          break;
+        case 'G':
+          issueATCommand(String("SET BEGIN=3"));
+          break;
+        case 'M':
+          issueATCommand(String("SET MAC=AABBCCDDEEFF"));
+          break;
         case 'J':
           Serial.println("nRF52840 Firmware: sending J to Tympan...");
           SERIAL_TO_TYMPAN.println("J");
+          break;
+        case '1':
+          issueATCommand(String("BLENOTIFY 1 1 1 9"));
+          break;
+        case '4':
+          issueATCommand(String("BLENOTIFY 3 0 4 1234"));
+          break;
+        case '5':
+          issueATCommand(String("BLENOTIFY 3 1 4 5678"));
           break;
       }
       //while (Serial->available()) AT_interpreter.processSerialCharacter(Serial.read());  
@@ -125,9 +169,8 @@ void loop(void) {
   serialEvent(&SERIAL_FROM_TYMPAN);  //for the nRF firmware, service any messages coming in the serial port from the Tympan
   
   //Respond to incoming BLE messages
-  if (bleConnected) { 
+  if (bleBegun && bleConnected) { 
     //for the nRF firmware, service any messages coming in from BLE wireless link
-    //BLEevent(&bleService_adafruitUART, &SERIAL_TO_TYMPAN);
     BLEevent(&bleService_tympanUART, &SERIAL_TO_TYMPAN);  
     BLEevent(&bleService_adafruitUART, &SERIAL_TO_TYMPAN);  
     
@@ -150,7 +193,7 @@ void serviceLEDs(unsigned long curTime_millis) {
     if (bleConnected) {
       if ((led_control.ledToFade > 0) && (led_control.ledToFade != led_control.green)) led_control.setLedColor(led_control.green);
     } else {
-      if (Bluefruit.Advertising.isRunning()) {
+      if (bleBegun && Bluefruit.Advertising.isRunning()) {
         if ((led_control.ledToFade > 0) && (led_control.ledToFade != led_control.blue)) led_control.setLedColor(led_control.blue);
       } else {
         if ((led_control.ledToFade > 0) && (led_control.ledToFade != led_control.red))led_control.setLedColor(led_control.red);
