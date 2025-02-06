@@ -35,7 +35,7 @@
     MIT License, use at your own risk.
  */
 
-#define DEBUG_VIA_USB true
+#define DEBUG_VIA_USB false
 
 #define SERIAL_TO_TYMPAN Serial1                 //use this when physically wired to a Tympan. Assumes that the nRF is connected via Serial1 pins
 #define SERIAL_FROM_TYMPAN Serial1               //use this when physically wired to a Tympan. Assumes that the nRF is connected via Serial1 pins
