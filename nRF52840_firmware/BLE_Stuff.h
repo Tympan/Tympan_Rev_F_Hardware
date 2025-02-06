@@ -11,6 +11,7 @@
 #include "AT_Processor.h"
 #include "BLEUart_Adafruit.h"
 #include "BLEUart_Tympan.h"
+#include "BLE_BattService.h"
 #include "BLE_LedService.h"
 
 #define MESSAGE_LENGTH 256     // default ble buffer size
@@ -41,6 +42,7 @@ BLEDfu            bledfu;  // Adafruit's built-in OTA DFU service
 BLEDis            bledis;  // Adafruit's built-in device information service
 BLEUart_Tympan    bleUart_Tympan;    //Tympan extension of the Adafruit UART service that allows us to change the Service and Characteristic UUIDs
 BLEUart_Adafruit  bleUart_Adafruit;  //Adafruit's built-in UART service
+BLE_BattService   ble_battService;  // battery service
 BLE_LedButtonService_4bytes    ble_lbs_4bytes;
 //AT_Processor    AT_interpreter(&bleUart_Tympan, &SERIAL_TO_TYMPAN);  //interpreter for the AT command set that we're inventing
 AT_Processor      AT_interpreter(&bleUart_Tympan, &bleUart_Adafruit, &SERIAL_TO_TYMPAN);  //interpreter for the AT command set that we're inventing
@@ -203,6 +205,9 @@ void beginAllBleServices(int setup_config_id) {
           bleUart_Adafruit.begin(preset_id); all_service_presets[preset_id] = &bleUart_Adafruit; //begin the service and add it to the array holding all active services
           break;
         case 3:
+          ble_battService.begin(preset_id); all_service_presets[preset_id] = &ble_battService; //begin the service and add it to the array holding all active service
+          break;
+        case 4:
           ble_lbs_4bytes.begin(preset_id); all_service_presets[preset_id] = &ble_lbs_4bytes; //begin the service and add it to the array holding all active services
           break;
         //add more cases here  

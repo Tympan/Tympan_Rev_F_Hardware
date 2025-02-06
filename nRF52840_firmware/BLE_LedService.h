@@ -15,7 +15,7 @@
 #include "BLE_Service_Preset.h"
 
 //define services and characteristics for a pre-set available to be invoked by the Tympan user at startup
-class BLE_LedButtonService_4bytes : public BLE_Service_Preset {
+class BLE_LedButtonService_4bytes : public virtual BLE_Service_Preset {
   public:
     BLE_LedButtonService_4bytes(void) : BLE_Service_Preset() {
       lbs = new BLEService(LBS_UUID_SERVICE);
