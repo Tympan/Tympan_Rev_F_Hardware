@@ -14,18 +14,20 @@
 #include <bluefruit.h>  //gives us the global "Bluefruit" class instance
 #include "LED_controller.h"
 
+//externals that are needed here
 extern LED_controller led_control;
-
-//declared in BLE_Stuff.h or TympanBLE.h.  Should we move them inside here?  
 extern bool bleBegun;
 extern bool bleConnected;
 extern char BLEmessage[];
+extern int service_preset_to_ble_advertise;
 extern void setMacAddress(char *);
 extern void startAdv(void);
 extern void stopAdv(void);
 extern void beginAllBleServices(int);
 extern const char versionString[];
 extern int sendBleDataByServiceAndChar(int command, int service_id, int char_id, int nbytes, const uint8_t *databytes);
+extern int setAdvertisingServiceToPresetById(int);
+extern bool enablePresetServiceById(int preset_id, bool enable);
 
 //running on the nRF52, this interprets commands coming from the hardware serial and send replies out to the BLE
 #define AT_PROCESSOR_N_BUFFER 512
@@ -76,6 +78,7 @@ class AT_Processor {
     int setMacAddressFromSerialBuff(void);
     int setBleNameFromSerialBuff(void);
     int setAdvertisingFromSerialBuff(void);
+    int setAdvServiceIdFromSerialBuff(void);
     int setLedModeFromSerialBuff(void);
     int bleSendFromSerialBuff(void);
     void debugPrintMsgFromSerialBuff(void);
@@ -100,8 +103,7 @@ void AT_Processor::addToSerialBuffer(char c) {
 
 char AT_Processor::getFirstCharInBuffer(void) {
   char c = serial_buff[serial_read_ind];
-  int test_n_char = 1;
-  serial_read_ind = (serial_read_ind + test_n_char) % AT_PROCESSOR_N_BUFFER; //increment the reader index for the serial buffer
+  serial_read_ind = (serial_read_ind + 1) % AT_PROCESSOR_N_BUFFER; //increment the reader index for the serial buffer
   return c;
 }
 
@@ -114,6 +116,7 @@ int AT_Processor::processSerialCharacter(char c) {
     //this branch will, at most, go only 3 characters.  If one is EOC, interpret it as required
     if (c == EOC) {  //look for the end-of-command character
       processSerialMessage();//the EOC character is NOT added to the serial_buff.  Just go ahead and interpret the serial_buff
+      rx_mode = RXMODE_LOOK_FOR_ANY;
     } else {
       addToSerialBuffer(c); //add the character to the buffer
       //look for the "BLE" of "BLEWRITE" or "BLENOTIFY" keywords, which indicate byte-counting operations are needed
@@ -129,6 +132,7 @@ int AT_Processor::processSerialCharacter(char c) {
   } else if (rx_mode == RXMODE_LOOK_FOR_CR_ONLY) {
     if (c == EOC) {  //look for the end-of-command character
       processSerialMessage();//the EOC character is NOT added to the serial_buff.  Just go ahead and interpret the serial_buff
+      rx_mode = RXMODE_LOOK_FOR_ANY;
     } else {
       addToSerialBuffer(c); //add the character to the buffer
     }
@@ -155,9 +159,10 @@ int AT_Processor::processSerialCharacterAsBleMessage(char c) {
 
   //Serial.println("AT_Processor::processSerialCharacterAsBleMessage: rx_mode " + String(rx_mode) + ", char = " + String(c) + ", lengthSerialMessage = " + String(lengthSerialMessage()));
 
-  if (rx_mode == RXMODE_LOOK_FOR_COMMAND)
+  if (rx_mode == RXMODE_LOOK_FOR_COMMAND) {
     if (c == EOC) {  //look for the end-of-command character
       processSerialMessage();//the EOC character is NOT added to the serial_buff.  Just go ahead and interpret the serial_buff
+      rx_mode = RXMODE_LOOK_FOR_ANY;
     } else {
       addToSerialBuffer(c); //add the character to the buffer
 
@@ -188,9 +193,11 @@ int AT_Processor::processSerialCharacterAsBleMessage(char c) {
           serial_read_ind = serial_write_ind;  //move up the read pointer
         }
       }
+    }
   } else if (rx_mode == RXMODE_LOOK_FOR_SERVICE) {
     if (c == EOC) {  //look for the end-of-command character
       processSerialMessage();//the EOC character is NOT added to the serial_buff.  Just go ahead and interpret the serial_buff
+      rx_mode = RXMODE_LOOK_FOR_ANY;
     } else {
       addToSerialBuffer(c); //add the character to the buffer
       if (c == ' ') {
@@ -203,6 +210,7 @@ int AT_Processor::processSerialCharacterAsBleMessage(char c) {
   } else if (rx_mode == RXMODE_LOOK_FOR_CHARACTERISTIC) {
     if (c == EOC) {  //look for the end-of-command character
       processSerialMessage();//the EOC character is NOT added to the serial_buff.  Just go ahead and interpret the serial_buff
+      rx_mode = RXMODE_LOOK_FOR_ANY;
     } else {
       addToSerialBuffer(c); //add the character to the buffer
       if (c == ' ') {
@@ -215,6 +223,7 @@ int AT_Processor::processSerialCharacterAsBleMessage(char c) {
   } else if (rx_mode == RXMODE_LOOK_FOR_NBYTES) {
     if (c == EOC) {  //look for the end-of-command character
       processSerialMessage();//the EOC character is NOT added to the serial_buff.  Just go ahead and interpret the serial_buff
+      rx_mode = RXMODE_LOOK_FOR_ANY;
     } else {
       addToSerialBuffer(c); //add the character to the buffer
       if (c == ' ') {
@@ -238,9 +247,11 @@ int AT_Processor::processSerialCharacterAsBleMessage(char c) {
       int ret_val = sendBleDataByServiceAndChar(ble_command, ble_service_id, ble_char_id, foo_nbytes, ble_databytes);
       if (ret_val == 0) {
         sendSerialOkMessage();
+        rx_mode = RXMODE_LOOK_FOR_ANY;
       } else { 
         String foo_str = "SEND BLE DATA failed to " + String(ble_service_id) + ", " + String(ble_char_id);
         sendSerialFailMessage(foo_str.c_str());
+        rx_mode = RXMODE_LOOK_FOR_ANY;
       }
       serial_read_ind = serial_write_ind;  //clear any remaining message
       rx_mode = RXMODE_LOOK_FOR_ANY;
@@ -339,7 +350,6 @@ int AT_Processor::processSerialMessage(void) {
   //send FAIL response, if none yet sent
   if (ret_val == VERB_NOT_KNOWN) sendSerialFailMessage("VERB not known");
 
-  //return
   serial_read_ind = serial_write_ind;  //remove any remaining message
   return ret_val;
 }
@@ -349,7 +359,7 @@ int AT_Processor::processSetMessageInSerialBuff(void) {
   int ret_val = PARAMETER_NOT_KNOWN;
 
    //look for parameter value of "BEGIN=""
-  test_n_char = 5+1; //length of "BAUDRATE="
+  test_n_char = 5+1; //length of "BEGIN="
   if (compareStringInSerialBuff("BEGIN=",test_n_char)) {
     serial_read_ind = (serial_read_ind + test_n_char) % AT_PROCESSOR_N_BUFFER; //increment the reader index for the serial buffer
     
@@ -452,6 +462,52 @@ int AT_Processor::processSetMessageInSerialBuff(void) {
     }
     serial_read_ind = serial_write_ind;  //remove the message
   }
+
+  //look for parameter value of ADV_SERVICE_ID 
+  test_n_char = 17+1; //length of "ADVERT_SERVICE_ID="
+  if (compareStringInSerialBuff("ADVERT_SERVICE_ID=",test_n_char)) {
+    serial_read_ind = (serial_read_ind + test_n_char) % AT_PROCESSOR_N_BUFFER; //increment the reader index for the serial buffer
+    ret_val = setAdvServiceIdFromSerialBuff();
+    //Serial.println("AT_Processor: setAdvServiceIdFromSerialBuff returned " + String(ret_val));
+    if (ret_val == 0) {
+      sendSerialOkMessage();
+    } else {
+      ret_val = OPERATION_FAILED;
+      sendSerialFailMessage("SET ADVERT_SERVICE_ID failed");
+    }
+    serial_read_ind = serial_write_ind;  //remove the message
+  }
+
+  //look to preset service given the ENABLE_SERVICE_ID
+  test_n_char = 17; //length of "ENABLE_SERVICE_ID"
+  if (compareStringInSerialBuff("ENABLE_SERVICE_ID",test_n_char)) { //full keyword would be "ENABLE_SERVICE_IDx=" where x is any number
+    serial_read_ind = (serial_read_ind + test_n_char) % AT_PROCESSOR_N_BUFFER; //increment the reader index for the serial buffer
+    //get the service number
+    char next_char = getFirstCharInBuffer();
+    if ((next_char >= '0') & (next_char <= '9')) {
+      int service_id = (int)(next_char-'0');
+      //look for the equal sign
+      next_char = getFirstCharInBuffer();
+      if (next_char == '=') {
+        //look for the equal sign
+        next_char = getFirstCharInBuffer();
+        if (next_char == 'T') { //for TRUE
+          bool is_enabled =  enablePresetServiceById(service_id, true);
+          if (is_enabled == true) ret_val = 0;
+        } else if (next_char == 'F') { //for FALSE
+          bool is_enabled =  enablePresetServiceById(service_id, false);
+          if (is_enabled == false) ret_val = 0;
+        }
+      }
+    }
+    if (ret_val == 0) {
+      sendSerialOkMessage();
+    } else {
+      ret_val=OPERATION_FAILED;
+      sendSerialFailMessage("SET ENABLE_SERVICE_ID failed");
+    }
+    serial_read_ind = serial_write_ind;  //remove the message
+  } 
 
   //look for parameter value of LEDMODE
   test_n_char = 7+1; //length of "LEDMODE="
@@ -557,6 +613,22 @@ int AT_Processor::processGetMessageInSerialBuff(void) {
     serial_read_ind = serial_write_ind;  //remove the message
   } 
 
+  test_n_char = 17; //length of "ADVERT_SERVICE_ID"
+  if (compareStringInSerialBuff("ADVERT_SERVICE_ID",test_n_char)) {
+    int foo_ind = serial_read_ind+test_n_char;
+    while (foo_ind >= AT_PROCESSOR_N_BUFFER) foo_ind -= AT_PROCESSOR_N_BUFFER;
+    if ((foo_ind==serial_write_ind) || (serial_buff[foo_ind] == EOC)) {
+      ret_val = 0;
+      char reply[1]={(char)(service_preset_to_ble_advertise + (int)'0')};  //convert to character than to c-string
+      sendSerialOkMessage(reply);
+      if (DEBUG_VIA_USB) Serial.println("GET ADVERT_SERVICE_ID returned " + String(service_preset_to_ble_advertise));
+    } else {
+      ret_val = FORMAT_PROBLEM;
+      sendSerialFailMessage("GET ADVERT_SERVICE_ID had formatting problem");
+    }     
+    serial_read_ind = serial_write_ind;  //remove the message
+  } 
+
   test_n_char = 7; //length of "LEDMODE"
   if (compareStringInSerialBuff("LEDMODE",test_n_char)) {
     int foo_ind = serial_read_ind+test_n_char;
@@ -636,7 +708,7 @@ int AT_Processor::setBeginFromSerialBuff(void) {
   return ret_val;
 }
 
-//returns
+
 int AT_Processor::setMacAddressFromSerialBuff(void) {
   int ret_val = 0;
   if (bleBegun == true)  {
@@ -719,8 +791,8 @@ int AT_Processor::setBleNameFromSerialBuff(void) {
 
 int AT_Processor::setAdvertisingFromSerialBuff(void) {
   int ret_val = OPERATION_FAILED;
+  if ((lengthSerialMessage() > 0) && (serial_buff[serial_read_ind]==' ')) serial_read_ind++; //remove leading whitespace
   int read_ind = serial_read_ind;
-  if ((lengthSerialMessage() > 0) && (serial_buff[read_ind]==' ')) read_ind++; //remove leading whitespace
   if (lengthSerialMessage() >= 2) {
     int next_read_ind = read_ind+1;
     while (next_read_ind >= AT_PROCESSOR_N_BUFFER) next_read_ind -= AT_PROCESSOR_N_BUFFER;
@@ -735,6 +807,17 @@ int AT_Processor::setAdvertisingFromSerialBuff(void) {
   return ret_val;
 }
 
+int AT_Processor::setAdvServiceIdFromSerialBuff(void) {
+  int ret_val = OPERATION_FAILED;
+  if ((lengthSerialMessage() > 0) && (serial_buff[serial_read_ind]==' ')) serial_read_ind++; //remove leading whitespace
+  if (lengthSerialMessage() >= 1) {
+    //only use the first character as the number...this is a kludge!
+    int targ_service_id = (int)(serial_buff[serial_read_ind]-'0');
+    int returned_service_id = setAdvertisingServiceToPresetById(targ_service_id);
+    if (returned_service_id==targ_service_id) ret_val = 0;  //it worked!
+  }
+  return ret_val;
+}
 
 int AT_Processor::setLedModeFromSerialBuff(void) {
   int ret_val = OPERATION_FAILED;
