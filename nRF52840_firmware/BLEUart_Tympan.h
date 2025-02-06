@@ -1,6 +1,3 @@
-#ifndef BLEUART_TYMPAN_h
-#define BLEUART_TYMPAN_h
-
 /* 
   Class: BLEUart_Tympan
   Created: Chip Audette, OpenAudio  Feb 2024
@@ -9,6 +6,9 @@
 
   License: MIT License, Use at your own risk
 */
+
+#ifndef BLEUART_TYMPAN_h
+#define BLEUART_TYMPAN_h
 
 #include <bluefruit.h> //for BLUUart
 #include "BLE_Service_Preset.h"

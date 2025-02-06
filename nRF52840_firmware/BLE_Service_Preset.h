@@ -1,6 +1,3 @@
-#ifndef _BLE_Service_Preset
-#define _BLE_Service_Preset
-
 /* 
   Class: BLE_Service_Preset
   Created: Chip Audette, OpenAudio  Feb 2025
@@ -9,6 +6,9 @@
 
   License: MIT License, Use at your own risk
 */
+
+#ifndef _BLE_Service_Preset
+#define _BLE_Service_Preset
 
 class BLE_Service_Preset {
   public:

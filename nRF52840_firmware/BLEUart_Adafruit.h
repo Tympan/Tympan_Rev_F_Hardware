@@ -1,6 +1,3 @@
-#ifndef BLEUART_ADAFRUIT_h
-#define BLEUART_ADAFRUIT_h
-
 /* 
   Class: BLEUart_Adafruit
   Created: Chip Audette, OpenAudio  May 2025
@@ -9,6 +6,9 @@
 
   License: MIT License, Use at your own risk
 */
+
+#ifndef BLEUART_ADAFRUIT_h
+#define BLEUART_ADAFRUIT_h
 
 #include <bluefruit.h> //for BLUUart
 #include "BLE_Service_Preset.h"
