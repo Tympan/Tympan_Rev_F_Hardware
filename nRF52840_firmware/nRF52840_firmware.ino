@@ -43,45 +43,34 @@
 #include <bluefruit.h>
 #include <Adafruit_LittleFS.h>
 #include <InternalFileSystem.h>
-#include "BLEuart_Tympan.h"
-#include "nRF52_BLE_Stuff.h"
+#include "BLEUart_Adafruit.h"
+#include "BLEUart_Tympan.h"
+#include "BLE_Stuff.h"
 #include "LED_controller.h"
-#include "nRF52_AT_API.h"  //must already have included LED_control.h
+#include "AT_Processor.h"  //must already have included LED_control.h
+#include "USB_SerialManager.h"
+
+
+// ///////////////////////////////// Helper Functions
 
 #define GPIO_for_isConnected 25  //what nRF pin is connected to "MISO1" net name
-
-LED_controller led_control;
-
-void printHelpToUSB(void) {
-  Serial.println("nRF52840 Firmware: Help:");
-  Serial.print(  "   : Version string: "); Serial.println(versionString);
-  Serial.println(" : Status:");
-  Serial.print(  "   : bleBegun: "); Serial.println(bleBegun);
-  Serial.print(  "   : bleConnected: "); Serial.println(bleConnected);
-  Serial.println("   : Send 'h' via USB to get this help");
-  if (bleBegun == false) {
-    Serial.println(" : Configuration:");
-    Serial.println("   : Send 'M' to set MAC address to AABBCCEEDDFF");
-    Serial.println("   : Send 'b' or 'B' to begin the BE services (default, mode=1)");
-    Serial.println("   : Send 'g' or 'G' to begin the BE services (mode=3)");
-  }
-  Serial.println(" : Trial Commands:");
-  Serial.println("   : Send 'J' via USB to send 'J' to the Tympan");
-  Serial.println("   : Send '1' to send AT command 'BLENOTIFY 1 1 1 9");
-  Serial.println("   : Send '4' to send AT command 'BLENOTIFY 3 0 4 1234");
-  Serial.println("   : Send '5' to send AT command 'BLENOTIFY 3 1 4 5678");
-}
-
 void setupGPIO(void) {
   pinMode(GPIO_for_isConnected, OUTPUT);
   digitalWrite(GPIO_for_isConnected, LOW);
 }
 
-void issueATCommand(const String &str) {
-  if (DEBUG_VIA_USB) Serial.println("nRF52840 Firmware: seding to be interpreted as AT command: " + str);            
-  for (int i=0; i<str.length(); i++) AT_interpreter.processSerialCharacter(str[i]);
-  if (str[str.length()-1] != '\r') AT_interpreter.processSerialCharacter('\r');  //add carriage return
+LED_controller led_control;
 
+
+void issueATCommand(const String &str) {  issueATCommand(str.c_str(), str.length()); }
+void issueATCommand(const char *msg, unsigned int len_msg) {
+  if (DEBUG_VIA_USB) {
+    Serial.print("nRF52840 Firmware: sending to be interpreted as AT command: ");
+    for (unsigned int i=0; i<len_msg; i++) Serial.print(msg[i]);
+    Serial.println();
+  }      
+  for (unsigned int i=0; i<len_msg; i++) AT_interpreter.processSerialCharacter(msg[i]);
+  AT_interpreter.processSerialCharacter('\r');  //add carriage return
 }
 
 void setup(void) {
@@ -123,47 +112,9 @@ void loop(void) {
 
   //Respond to incoming messages on the USB serial
   if (DEBUG_VIA_USB) {
-    if (Serial.available()) {
-      char c = Serial.read();
-      //Serial.print("Received Character via USB: " + String(c));
-      switch (c) {
-        case 'h': case '?':
-          printHelpToUSB();
-          break;
-        case 'b':
-          Serial.println("nRF52840 Firmware: starting all BLE services (default)...");
-          beginAllBleServices(1);
-          break;
-        case 'B':
-          issueATCommand(String("SET BEGIN=1"));
-          break;
-        case 'g':
-          Serial.println("nRF52840 Firmware: starting all BLE services (preset=3)...");
-          beginAllBleServices(3);
-          break;
-        case 'G':
-          issueATCommand(String("SET BEGIN=3"));
-          break;
-        case 'M':
-          issueATCommand(String("SET MAC=AABBCCDDEEFF"));
-          break;
-        case 'J':
-          Serial.println("nRF52840 Firmware: sending J to Tympan...");
-          SERIAL_TO_TYMPAN.println("J");
-          break;
-        case '1':
-          issueATCommand(String("BLENOTIFY 1 1 1 9"));
-          break;
-        case '4':
-          issueATCommand(String("BLENOTIFY 3 0 4 1234"));
-          break;
-        case '5':
-          issueATCommand(String("BLENOTIFY 3 1 4 5678"));
-          break;
-      }
-      //while (Serial->available()) AT_interpreter.processSerialCharacter(Serial.read());  
-    }
+    if (Serial.available()) serialManager_processCharacter(Serial.read());
   }
+  
 
   //Respond to incoming UART serial messages
   serialEvent(&SERIAL_FROM_TYMPAN);  //for the nRF firmware, service any messages coming in the serial port from the Tympan
@@ -171,8 +122,8 @@ void loop(void) {
   //Respond to incoming BLE messages
   if (bleBegun && bleConnected) { 
     //for the nRF firmware, service any messages coming in from BLE wireless link
-    BLEevent(&bleService_tympanUART, &SERIAL_TO_TYMPAN);  
-    BLEevent(&bleService_adafruitUART, &SERIAL_TO_TYMPAN);  
+    BLEevent(&bleUart_Tympan, &SERIAL_TO_TYMPAN);  
+    BLEevent(&bleUart_Adafruit, &SERIAL_TO_TYMPAN);  
     
   }
 
@@ -183,7 +134,8 @@ void loop(void) {
   serviceGPIO(millis());
 }
 
-// ///////////////////////////////// Service Routines
+// ///////////////////////////////// Servicing Functions
+
 void serviceLEDs(unsigned long curTime_millis) {
   static unsigned long lastUpdate_millis = 0;
 

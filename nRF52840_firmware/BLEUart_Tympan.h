@@ -24,8 +24,10 @@
 class BLEUart_Tympan : public virtual BLEUart, public virtual BLE_Service_Preset
 {
   public:
-    BLEUart_Tympan(void) : BLEUart(), BLE_Service_Preset() {};
-    ~BLEUart_Tympan(void) override {};
+    BLEUart_Tympan(void) : BLEUart(), BLE_Service_Preset() {
+       myBleChar = new BLECharacteristic(this_characteristicUUID, BLENotify | BLEWrite); //from #include <bluefruit.h>
+    };
+    ~BLEUart_Tympan(void) override { delete myBleChar; };
 
     virtual void setCharacteristicUuid(BLECharacteristic &ble_char)
     { 
@@ -37,6 +39,9 @@ class BLEUart_Tympan : public virtual BLEUart, public virtual BLE_Service_Preset
     {
       BLE_Service_Preset::begin(id); //sets service_id
 
+      setUuid(this_serviceUUID);
+      setCharacteristicUuid(*myBleChar);
+     
       _rx_fifo = new Adafruit_FIFO(1);
       _rx_fifo->begin(_rx_fifo_depth);
 
@@ -78,6 +83,17 @@ class BLEUart_Tympan : public virtual BLEUart, public virtual BLE_Service_Preset
     size_t write( const int char_id, const uint8_t* data, size_t len) override { return BLEUart::write(data, len); }
     size_t notify(const int char_id, const uint8_t* data, size_t len) override { return BLEUart::write(data, len); }
     BLEService* getServiceToAdvertise(void) override { return this; }
+
+    // ID Strings to be used by the nRF52 firmware to enable recognition by Tympan Remote App
+    //String serviceUUID = String("BC-2F-4C-C6-AA-EF-43-51-90-34-D6-62-68-E3-28-F0");
+    //String characteristicUUID = String("06-D1-E5-E7-79-AD-4A-71-8F-AA-37-37-89-F7-D9-3C");
+    uint8_t this_serviceUUID[16] =        { 0xF0, 0x28, 0xE3, 0x68, 0x62, 0xD6, 0x34, 0x90, 0x51, 0x43, 0xEF, 0xAA, 0xC6, 0x4C, 0x2F, 0xBC }; //reverse order!
+    uint8_t this_characteristicUUID[16] = { 0x3C, 0xD9, 0xF7, 0x89, 0x37, 0x37, 0xAA, 0x8F, 0x71, 0x4A, 0xAD, 0x79, 0xE7, 0xE5, 0xD1, 0x06 };  //reverse order!
+    BLECharacteristic *myBleChar;
+
+    //define how many characteristics and what their ID numbes are
+    const int nchars = 1;  //max number of characteristics
+    const int char_ids[1]  = {0};  //characteristic ids.  default.  might get overwritten
 
 };
 

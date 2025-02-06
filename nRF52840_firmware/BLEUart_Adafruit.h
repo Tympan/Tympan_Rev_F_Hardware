@@ -37,6 +37,10 @@ class BLEUart_Adafruit : public virtual BLEUart, public virtual BLE_Service_Pres
     size_t notify(const int char_id, const uint8_t* data, size_t len) override { return BLEUart::write(data, len); }
     BLEService* getServiceToAdvertise(void) override { return this; }
 
+    //define how many characteristics and what their ID numbes are
+    const int nchars = 1;  //max number of characteristics
+    const int char_ids[1]  = {0};  //characteristic ids.  default.  might get overwritten
+
 };
 
 #endif

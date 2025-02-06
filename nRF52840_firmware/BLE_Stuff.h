@@ -5,7 +5,10 @@
 // /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #include <bluefruit.h>
-#include "nRF52_AT_API.h"
+#include "AT_Processor.h"
+#include "BLEUart_Adafruit.h"
+#include "BLEUart_Tympan.h"
+#include "BLE_LedService.h"
 
 #define MESSAGE_LENGTH 256     // default ble buffer size
 // #define OUT_STRING_LENGTH 201
@@ -14,12 +17,7 @@
 ble_gap_addr_t this_gap_addr;
 #define MAC_NBYTES 6
 
-// ID Strings to be used by the nRF52 firmware to enable recognition by Tympan Remote App
-//String serviceUUID = String("BC-2F-4C-C6-AA-EF-43-51-90-34-D6-62-68-E3-28-F0");
-//String characteristicUUID = String("06-D1-E5-E7-79-AD-4A-71-8F-AA-37-37-89-F7-D9-3C");
-uint8_t serviceUUID[] = { 0xF0, 0x28, 0xE3, 0x68, 0x62, 0xD6, 0x34, 0x90, 0x51, 0x43, 0xEF, 0xAA, 0xC6, 0x4C, 0x2F, 0xBC };
-uint8_t characteristicUUID[] = {  0x3C, 0xD9, 0xF7, 0x89, 0x37, 0x37, 0xAA, 0x8F, 0x71, 0x4A , 0xAD, 0x79, 0xE7, 0xE5, 0xD1, 0x06}; 
-BLECharacteristic myBleChar = BLECharacteristic(characteristicUUID, BLENotify | BLEWrite); //from #include <bluefruit.h>
+
 
 //   vvvvv  VERSION INDICATION  vvvvv
 const char versionString[] = "TympanBLE v0.4.0, nRF52840";
@@ -33,23 +31,22 @@ boolean bleConnected = false;
 boolean bleBegun = false;
 String uniqueID = "DEADBEEFCAFEDATE"; // [16]; // used to gather the 'serial number' of the chip
 char bleInChar;  // incoming BLE char
-BLEService *serviceToAdvertise;
+BLEService *serviceToAdvertise = nullptr;
 
 //Create the nRF52 BLE elements (the firmware on the nRF BLE Hardware itself)
-BLEDfu          bledfu;  // Adafruit's built-in OTA DFU service
-BLEDis          bledis;  // Adafruit's built-in device information service
-BLEUart_Tympan  bleService_tympanUART;    //Tympan extension of the Adafruit UART service that allows us to change the Service and Characteristic UUIDs
-BLEUart         bleService_adafruitUART;  //Adafruit's built-in UART service
-//nRF52_AT_API    AT_interpreter(&bleService_tympanUART, &SERIAL_TO_TYMPAN);  //interpreter for the AT command set that we're inventing
-nRF52_AT_API    AT_interpreter(&bleService_tympanUART, &bleService_adafruitUART, &SERIAL_TO_TYMPAN);  //interpreter for the AT command set that we're inventing
+BLEDfu            bledfu;  // Adafruit's built-in OTA DFU service
+BLEDis            bledis;  // Adafruit's built-in device information service
+BLEUart_Tympan    bleUart_Tympan;    //Tympan extension of the Adafruit UART service that allows us to change the Service and Characteristic UUIDs
+BLEUart_Adafruit  bleUart_Adafruit;  //Adafruit's built-in UART service
+BLE_LedButtonService_4bytes    ble_lbs_4bytes;
+//AT_Processor    AT_interpreter(&bleUart_Tympan, &SERIAL_TO_TYMPAN);  //interpreter for the AT command set that we're inventing
+AT_Processor      AT_interpreter(&bleUart_Tympan, &bleUart_Adafruit, &SERIAL_TO_TYMPAN);  //interpreter for the AT command set that we're inventing
 
-// Define an common interface for a BLE service with characteristics
-
+// Define a container for holding BLE Services that might need to get invoked independently later
 #define MAX_N_PRESET_SERVICES 10
-BLE_Service_Preset * all_service_presets[MAX_N_PRESET_SERVICES];
-#include "Preset_LedService.h"
-PRESET_LedButtonService_4bytes PRESET_lbs_4bytes;
-
+BLE_Service_Preset* all_service_presets[MAX_N_PRESET_SERVICES];
+bool flag_activateServicePreset[MAX_N_PRESET_SERVICES] = {true, true, true, false, false, false, false, false, false, false};
+int service_preset_to_ble_advertise = 1;  //which of the presets to include in the advertising.  could be overwritten
 
 // callback invoked when central connects
 void connect_callback(uint16_t conn_handle)
@@ -150,8 +147,28 @@ void serialEvent(HardwareSerial *serial_from_tympan) { //for the nRF firmware, s
     }
  }
 
+bool enablePresetServiceById(int preset_id, bool enable) {
+  if ((preset_id > 0) && (preset_id < MAX_N_PRESET_SERVICES)) {
+    return flag_activateServicePreset[preset_id] = enable;
+  }
+  return false;
+}
+
+int setAdvertisingServiceToPresetById(int preset_id) {
+  if ((preset_id > 0) && (preset_id < MAX_N_PRESET_SERVICES)) {
+      service_preset_to_ble_advertise = preset_id;
+
+      //in case this function gets called after the system is running (or about to begin()), follow through with the next steps, too
+      BLE_Service_Preset* service_ptr = all_service_presets[service_preset_to_ble_advertise];
+      if (service_ptr) serviceToAdvertise = service_ptr->getServiceToAdvertise();
+      return service_preset_to_ble_advertise;
+  }
+  return -1;
+}
 
 void beginAllBleServices(int setup_config_id) {
+  int preset_id = 0;
+
   bleBegun = true;
   // set the MAC address
   Bluefruit.setAddr(&this_gap_addr);
@@ -166,40 +183,33 @@ void beginAllBleServices(int setup_config_id) {
 
   // To be consistent OTA DFU should be added first if it exists
   bledfu.begin(); // makes it possible to do OTA DFU
+
   // Configure and Start Device Information Service
   bledis.setManufacturer(manufacturerName); //"Flywheel Lab");
   bledis.setModel(versionString);
   bledis.begin();
 
-  // Configure the standard Adafruit UART service
-  bleService_adafruitUART.begin();
+  // Configure and begin all of the other services (as requested)
+  for (preset_id == 1; preset_id < MAX_N_PRESET_SERVICES; preset_id++) {  //start at 1, assuming 0 is always the dfu service
+    if (flag_activateServicePreset[preset_id]) {
+      switch (preset_id) {
+        case 1:
+          bleUart_Tympan.begin(preset_id); all_service_presets[preset_id] = &bleUart_Tympan;  //begin the service and add it to the array holding all active services
+          break;
+        case 2:
+          bleUart_Adafruit.begin(preset_id); all_service_presets[preset_id] = &bleUart_Adafruit; //begin the service and add it to the array holding all active services
+          break;
+        case 3:
+          ble_lbs_4bytes.begin(preset_id); all_service_presets[preset_id] = &ble_lbs_4bytes; //begin the service and add it to the array holding all active services
+          break;
+        //add more cases here  
 
-  // Configure and Start our custom tympan-specific BLE Uart Service
-  bleService_tympanUART.setUuid(serviceUUID);
-  bleService_tympanUART.setCharacteristicUuid(myBleChar);
-  bleService_tympanUART.begin(1);
-  all_service_presets[1] = &bleService_tympanUART;
-
-  // Start any pre-defined custom services 
-  serviceToAdvertise = &bleService_tympanUART; //default assumption
-  switch (setup_config_id) {
-    case 0:
-      //assume that this is associated with never having activated any services
-      break;
-    case 1:
-      //assume this is the default mode of operation
-      break;
-    case 2:
-      //eventually to implement: use Adafruit-standard BLE-UART instead of Tympan-specific UART
-      serviceToAdvertise = &bleService_adafruitUART;
-      break;
-    case 3:
-      //enable "LED Service"
-      PRESET_lbs_4bytes.begin(setup_config_id);
-      serviceToAdvertise = PRESET_lbs_4bytes.getServiceToAdvertise();
-      if (setup_config_id < MAX_N_PRESET_SERVICES) all_service_presets[setup_config_id] = &PRESET_lbs_4bytes;
-      break;
+      }
+    }
   }
+
+  //get which service to advertise
+  setAdvertisingServiceToPresetById(service_preset_to_ble_advertise);
 
   //start advertising
   startAdv();
@@ -296,7 +306,7 @@ void stopAdv(void) {
 }
 
 
-void sendBleDataByServiceAndChar(int command, int service_id, int char_id, int nbytes, const uint8_t *databytes) {
+int sendBleDataByServiceAndChar(int command, int service_id, int char_id, int nbytes, const uint8_t *databytes) {
   if (DEBUG_VIA_USB) { 
       Serial.print("sendBleDataByServiceAndChar: BLE Command " + String(command) + ", service = " + String(service_id));
       Serial.print(", char " + String(char_id) + ", nbytes = " + String(nbytes));
@@ -335,5 +345,7 @@ void sendBleDataByServiceAndChar(int command, int service_id, int char_id, int n
     Iservice++;  //increment to look at next service in the list
   }
   if ((data_sent == false) && DEBUG_VIA_USB) Serial.println("sendBleDataByServiceAndChar: data NOT sent to service " + String(service_id) + " because no matching service ID found");
+  if (data_sent == false) return -1;
+  return 0;
 }
 
