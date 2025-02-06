@@ -6,8 +6,8 @@
 //
 // /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-#ifndef nRF52_BLEUART_TYMPAN_h
-#define nRF52_BLEUART_TYMPAN_h
+#ifndef BLEUART_TYMPAN_h
+#define BLEUART_TYMPAN_h
 
 /* 
   Class: BLEUart_Tympan
@@ -19,18 +19,24 @@
 */
 
 #include <bluefruit.h> //for BLUUart
+#include "BLE_Service_Preset.h"
 
-class BLEUart_Tympan : public BLEUart
+class BLEUart_Tympan : public virtual BLEUart, public virtual BLE_Service_Preset
 {
   public:
-    void setCharacteristicUuid(BLECharacteristic &ble_char)
+    BLEUart_Tympan(void) : BLEUart(), BLE_Service_Preset() {};
+    ~BLEUart_Tympan(void) override {};
+
+    virtual void setCharacteristicUuid(BLECharacteristic &ble_char)
     { 
       _txd = ble_char;  //_txd is in BLEUart
       _rxd = ble_char;  //_rxd is in BLEUart
     };
 
-    err_t begin(void)   //override this method
+    err_t begin(int id) override  //err_t is inhereted from bluefruit.h?
     {
+      BLE_Service_Preset::begin(id); //sets service_id
+
       _rx_fifo = new Adafruit_FIFO(1);
       _rx_fifo->begin(_rx_fifo_depth);
 
@@ -67,6 +73,11 @@ class BLEUart_Tympan : public BLEUart
 
       return ERROR_NONE;
     }
+
+    //additional methods required by BLE_Service_Preset
+    size_t write( const int char_id, const uint8_t* data, size_t len) override { return BLEUart::write(data, len); }
+    size_t notify(const int char_id, const uint8_t* data, size_t len) override { return BLEUart::write(data, len); }
+    BLEService* getServiceToAdvertise(void) override { return this; }
 
 };
 

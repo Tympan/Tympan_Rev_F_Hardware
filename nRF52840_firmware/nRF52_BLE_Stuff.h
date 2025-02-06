@@ -44,15 +44,7 @@ BLEUart         bleService_adafruitUART;  //Adafruit's built-in UART service
 nRF52_AT_API    AT_interpreter(&bleService_tympanUART, &bleService_adafruitUART, &SERIAL_TO_TYMPAN);  //interpreter for the AT command set that we're inventing
 
 // Define an common interface for a BLE service with characteristics
-class BLE_Service_Preset {
-  public:
-    BLE_Service_Preset(void) {}
-    virtual ~BLE_Service_Preset(void) {};
-    virtual int setup(int id) { service_id = id; return 0; }
-    virtual uint16_t write(const int char_id, const uint8_t* data, uint16_t len) = 0;
-    virtual uint16_t notify(const int char_id, const uint8_t* data, uint16_t len) = 0;
-    int service_id = 0; //will get overwritten when actually setup
-};
+
 #define MAX_N_PRESET_SERVICES 10
 BLE_Service_Preset * all_service_presets[MAX_N_PRESET_SERVICES];
 #include "Preset_LedService.h"
@@ -185,7 +177,8 @@ void beginAllBleServices(int setup_config_id) {
   // Configure and Start our custom tympan-specific BLE Uart Service
   bleService_tympanUART.setUuid(serviceUUID);
   bleService_tympanUART.setCharacteristicUuid(myBleChar);
-  bleService_tympanUART.begin();
+  bleService_tympanUART.begin(1);
+  all_service_presets[1] = &bleService_tympanUART;
 
   // Start any pre-defined custom services 
   serviceToAdvertise = &bleService_tympanUART; //default assumption
@@ -202,7 +195,7 @@ void beginAllBleServices(int setup_config_id) {
       break;
     case 3:
       //enable "LED Service"
-      PRESET_lbs_4bytes.setup(setup_config_id);
+      PRESET_lbs_4bytes.begin(setup_config_id);
       serviceToAdvertise = PRESET_lbs_4bytes.getServiceToAdvertise();
       if (setup_config_id < MAX_N_PRESET_SERVICES) all_service_presets[setup_config_id] = &PRESET_lbs_4bytes;
       break;
@@ -277,7 +270,7 @@ void startAdv(void)
   // Advertising packet
   Bluefruit.Advertising.addFlags(BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE);
   Bluefruit.Advertising.addTxPower();
-  Bluefruit.Advertising.addService(*serviceToAdvertise); //set which BLE service to advertise
+  if (serviceToAdvertise != nullptr) Bluefruit.Advertising.addService(*serviceToAdvertise); //set which BLE service to advertise
 
   //Bluefruit.Advertising.addService(myBleService);
   // Add 'Name' to Advertising packet

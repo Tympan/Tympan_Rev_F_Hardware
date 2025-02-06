@@ -43,7 +43,7 @@
 #include <bluefruit.h>
 #include <Adafruit_LittleFS.h>
 #include <InternalFileSystem.h>
-#include "nRF52_BLEuart_Tympan.h"
+#include "BLEuart_Tympan.h"
 #include "nRF52_BLE_Stuff.h"
 #include "LED_controller.h"
 #include "nRF52_AT_API.h"  //must already have included LED_control.h

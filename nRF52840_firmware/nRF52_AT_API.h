@@ -749,7 +749,7 @@ int nRF52_AT_API::setLedModeFromSerialBuff(void) {
 //Must still have a carriage return at the end of the serial buffer, though, marking the end of the overall message
 int nRF52_AT_API::bleSendFromSerialBuff(void) {
   //copy the message from the circular buffer to the straight buffer
-  int counter = 0;
+  size_t counter = 0;
   while (serial_read_ind != serial_write_ind) {
     BLEmessage[counter] = serial_buff[serial_read_ind];
     counter++;
@@ -759,8 +759,8 @@ int nRF52_AT_API::bleSendFromSerialBuff(void) {
 
   //if BLE is connected, fire off the message
   if (bleConnected) {
-    if (ble_ptr1) ble_ptr1->write( BLEmessage, counter );
-    if (ble_ptr2) ble_ptr2->write( BLEmessage, counter );
+    if (ble_ptr1) ble_ptr1->write(0, (const uint8_t *)BLEmessage, counter ); //characteristic ID 0
+    if (ble_ptr2) ble_ptr2->write((const uint8_t *)BLEmessage, counter );
     return counter;
   }
   return NO_BLE_CONNECTION;

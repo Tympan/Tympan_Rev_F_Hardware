@@ -1,23 +1,22 @@
-#ifndef _Preset_LedService_h
-#define _Preset_LedService_h
+#ifndef _BLE_LedService_h
+#define _BLE_LedService_h
 
 #include <bluefruit.h>
-
-
+#include "BLE_Service_Preset.h"
 
 //define services and characteristics for a pre-set available to be invoked by the Tympan user at startup
-class PRESET_LedButtonService_4bytes : public BLE_Service_Preset {
+class BLE_LedButtonService_4bytes : public BLE_Service_Preset {
   public:
-    PRESET_LedButtonService_4bytes(void) : BLE_Service_Preset() {
+    BLE_LedButtonService_4bytes(void) : BLE_Service_Preset() {
       lbs = new BLEService(LBS_UUID_SERVICE);
       lbsButton = new BLECharacteristic(LBS_UUID_CHR_BUTTON);
       lbsLED = new BLECharacteristic(LBS_UUID_CHR_LED);
     }
-    ~PRESET_LedButtonService_4bytes(void) override {
+    ~BLE_LedButtonService_4bytes(void) override {
       delete lbsLED;  delete lbsButton;   delete lbs;
     }
-    int setup(int id) override {
-      BLE_Service_Preset::setup(id); //sets service_id
+    err_t begin(int id) override {  //err_t is inhereted from bluefruit.h?
+      BLE_Service_Preset::begin(id); //sets service_id
 
       // Note: You must call .begin() on the BLEService before calling .begin() on
       // any characteristic(s) within that service definition.. Calling .begin() on
@@ -46,13 +45,13 @@ class PRESET_LedButtonService_4bytes : public BLE_Service_Preset {
       lbsLED->write32(0x00040506);  //init value. Appears in NordicConnect in the reverse byte order of shown here
 
       // lbsLED->setWriteCallback(led_write_callback);
-      return 0;
+      return (err_t)0;
     }
-    BLEService* getServiceToAdvertise(void) {
+    BLEService* getServiceToAdvertise(void) override {
       return lbs;
     }
 
-    uint16_t write(const int char_id, const uint8_t* data, uint16_t len) override {
+    size_t write(const int char_id, const uint8_t* data, size_t len) override {
       //reverse the bytes
       //uint8_t rev_data[len];
       //for (int I=0; I<len; I++) rev_data[len-I-1] = data[I];
@@ -64,7 +63,8 @@ class PRESET_LedButtonService_4bytes : public BLE_Service_Preset {
       }
       return 0;
     }
-    uint16_t notify(const int char_id, const uint8_t* data, uint16_t len) override {
+
+    size_t notify(const int char_id, const uint8_t* data, size_t len) override {
       //reverse the bytes
       //uint8_t rev_data[len];
       //#for (int I=0; I<len; I++) rev_data[len-I-1] = data[I];
