@@ -2,6 +2,14 @@
 #ifndef USB_SERIALMANAGER_H
 #define USB_SERIALMANAGER_H
 
+//
+//Created: Chip Audette, OpenAudio, Feb 2025
+//
+//These functions are only used for managing USB serial comms, which means that this is
+//only for debugging and development.  none of this is needed for the production code
+//
+//MIT License.  Use at your own risk.
+
 extern bool bleBegun;
 extern bool bleConnected;
 extern const char versionString[];

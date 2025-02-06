@@ -1,6 +1,17 @@
 #ifndef _BLE_LedService_h
 #define _BLE_LedService_h
 
+// ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+// This code will run on the **nRF52** to allow the TympanRemote app see the UART-like service that we're offering
+// over BLE.  This code will likely be part of our nRF52 firmware.
+//
+// Created: Chip Audette Feb 2025
+// MIT License.  Use at your own risk.
+//
+// /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
 #include <bluefruit.h>
 #include "BLE_Service_Preset.h"
 

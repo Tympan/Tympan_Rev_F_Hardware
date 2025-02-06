@@ -3,6 +3,9 @@
 // This code will run on the **nRF52** to interpret the AT-style commands coming in over the wired Serial1 link
 // from the Tympan.   This code will likely be part of our nRF52 firmware.
 //
+// Created: Chip Audette Feb 2025
+// MIT License.  Use at your own risk.
+//
 // /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #ifndef AT_PROCESSOR_H
@@ -75,8 +78,6 @@ class AT_Processor {
     int setAdvertisingFromSerialBuff(void);
     int setLedModeFromSerialBuff(void);
     int bleSendFromSerialBuff(void);
-    //int bleNotifyFromSerialBuff(void);
-    //int bleWriteFromSerialBuff(void);
     void debugPrintMsgFromSerialBuff(void);
     void debugPrintMsgFromSerialBuff(int, int);
     void sendSerialOkMessage(void);

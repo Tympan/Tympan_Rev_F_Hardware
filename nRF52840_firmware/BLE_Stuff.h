@@ -2,6 +2,9 @@
 //
 // This code will run on the **nRF52** to configure the device.  This code will likely be part of our nRF52 firmware.
 //
+// Created: Chip Audette Feb 2025
+// MIT License.  Use at your own risk.
+//
 // /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #include <bluefruit.h>

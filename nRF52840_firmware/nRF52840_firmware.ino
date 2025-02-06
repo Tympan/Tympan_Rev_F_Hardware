@@ -31,6 +31,8 @@
  
     Original BLE servicing code by Joel Murphy for Flywheel Lab, February 2024
     Extended by Chip Audette, Benchtop Engineering, for Creare LLC, February 2024
+
+    MIT License, use at your own risk.
  */
 
 #define DEBUG_VIA_USB true

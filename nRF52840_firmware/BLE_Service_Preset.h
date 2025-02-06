@@ -1,7 +1,6 @@
 #ifndef _BLE_Service_Preset
 #define _BLE_Service_Preset
 
-
 /* 
   Class: BLE_Service_Preset
   Created: Chip Audette, OpenAudio  Feb 2025
