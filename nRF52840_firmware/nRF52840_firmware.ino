@@ -4,7 +4,9 @@
       This is the Tympan-written firmware for the nRF52840 BLE device that is built into the Tympan
       Rev F.  The device provides BLE communication between the Tympan and mobile devices, especially
       when the mobile device is running the TympanRemote App.
-      
+
+      See Documentation here: https://github.com/Tympan/Tympan_Rev_F_Hardware/wiki/Bluetooth-and-Tympan-Rev-F
+            
       To compile the code, set the Arduino IDE "board" for the Adafruit "nRF52840 Express".  Then,
       export the binary (HEX) via the Arduino IDE's "Sketch" menu.  Select "Export Compiled Binary".
       
@@ -35,7 +37,7 @@
     MIT License, use at your own risk.
  */
 
-#define DEBUG_VIA_USB true
+#define DEBUG_VIA_USB false
 
 #define SERIAL_TO_TYMPAN Serial1                 //use this when physically wired to a Tympan. Assumes that the nRF is connected via Serial1 pins
 #define SERIAL_FROM_TYMPAN Serial1               //use this when physically wired to a Tympan. Assumes that the nRF is connected via Serial1 pins
