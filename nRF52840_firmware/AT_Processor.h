@@ -72,6 +72,7 @@ class AT_Processor {
 
     //methods corresponding to the detailed actions that can be taken
     bool compareStringInSerialBuff(const char* test_str, int n);  
+    int processBeginMessageInSerialBuff(void);
     int processSetMessageInSerialBuff(void);  
     int processGetMessageInSerialBuff(void);
     int setBeginFromSerialBuff(void);
@@ -324,6 +325,17 @@ int AT_Processor::processSerialMessage(void) {
     }
   } 
 
+  //test for the verb "BEGIN"
+  test_n_char = 5; //how long is "BEGIN"
+  if (len >= test_n_char) {
+    if (compareStringInSerialBuff("BEGIN",test_n_char)) {  //does the current message start this way
+      serial_read_ind = (serial_read_ind + test_n_char) % AT_PROCESSOR_N_BUFFER; //increment the reader index for the serial buffer
+      if (DEBUG_VIA_USB) { Serial.print("AT_Processor: recvd: BEGIN "); debugPrintMsgFromSerialBuff(); Serial.println(); } 
+      ret_val = processBeginMessageInSerialBuff();
+    }
+  } 
+
+
   //test for the verb "VERSION"
   test_n_char = 7; //how long is "VERSION"
   if (len >= test_n_char) {
@@ -540,6 +552,17 @@ int AT_Processor::processSetMessageInSerialBuff(void) {
   return ret_val;
 }
 
+int AT_Processor::processBeginMessageInSerialBuff(void) {
+  int ret_val = setBeginFromSerialBuff();
+  if (ret_val == 0) {
+      sendSerialOkMessage();
+    } else {
+      sendSerialFailMessage("SET BEGIN failed");
+  }
+  serial_read_ind = serial_write_ind;  //remove the message
+  return ret_val;  
+}
+
 int AT_Processor::processGetMessageInSerialBuff(void) {
   int test_n_char;
   int ret_val = PARAMETER_NOT_KNOWN;
@@ -695,13 +718,16 @@ int AT_Processor::processGetMessageInSerialBuff(void) {
 int AT_Processor::setBeginFromSerialBuff(void) {
   int ret_val = OPERATION_FAILED;
   int read_ind = serial_read_ind;
-  if (serial_buff[serial_read_ind] == '0') { //for FALSE
+  char new_val = '1';  
+  if (lengthSerialMessage() > 0) if (serial_buff[serial_read_ind] == ' ') serial_read_ind++;  //skip over a single space, if it exists
+  if (lengthSerialMessage() > 0) new_val = serial_buff[serial_read_ind]; //cheating, assumes only 1 character
+  if (new_val == '0') { //for FALSE
     //do not start
     ret_val = 0;
   } else {
-    //any other character (including none), assume we want to start
-    int id = (int) (serial_buff[serial_read_ind] - '0');  //cheating, assumes only 1 character
-    beginAllBleServices(id);
+    //any other character, assume we want to start
+    int start_code = (int) (new_val - '0');  //cheating, assumes only 1 character
+    beginAllBleServices(start_code);
     ret_val = 0;
   }
   serial_read_ind = serial_write_ind;  //remove any remaining message
@@ -861,15 +887,18 @@ void AT_Processor::sendSerialOkMessage(const char* reply_str) {
   serial_ptr->print("OK ");
   serial_ptr->print(reply_str);
   serial_ptr->println(EOC);
+  if (DEBUG_VIA_USB) Serial.println("AT Reply: OK " + String(reply_str));
 }
 void AT_Processor::sendSerialOkMessage(void) {
   serial_ptr->print("OK ");
   serial_ptr->println(EOC);
+  if (DEBUG_VIA_USB) Serial.println("AT Reply: OK");
 }
 void AT_Processor::sendSerialFailMessage(const char* reply_str) {
   serial_ptr->print("FAIL ");
   serial_ptr->print(reply_str);
   serial_ptr->println(EOC);
+   if (DEBUG_VIA_USB) Serial.println("AT Reply: FAIL " + String(reply_str));
 }
 
 void AT_Processor::debugPrintMsgFromSerialBuff(void) {
