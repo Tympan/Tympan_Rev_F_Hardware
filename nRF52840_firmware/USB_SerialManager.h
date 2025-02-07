@@ -31,24 +31,27 @@ void printHelpToUSB(void) {
   if (bleBegun == false) {
     Serial.println(" : Configuration:");
     Serial.println("   : Send 'M' to set MAC address to AABBCCEEDDFF");
-    Serial.println("   : send '1' to enable Tympan UART Service (already enabled by default?");
-    Serial.println("   : send '!' to enable Tympan UART as the Advertised Service");
-    Serial.println("   : send '2' to enable Adafruit UART Service (already enabled by default?");
-    Serial.println("   : send '@' to enable Adafruit UART as the Advertised Service");
-    Serial.println("   : send '3' to enable Battery Service");
-    Serial.println("   : send '#' to enable Battery as the Advertised Service");
-    Serial.println("   : send '4' to enable LBS Service");
-    Serial.println("   : send '$' to enable LBS as the Advertised Service");
+    Serial.println("   : send '1' to enable Device Information Service (already enabled by default)");
+    Serial.println("   : send '!' to enable Device Information Service as the Advertised Service");
+    Serial.println("   : send '2' to enable Tympan UART Service (already enabled by default");
+    Serial.println("   : send '@' to enable Tympan UART as the Advertised Service");
+    Serial.println("   : send '3' to enable Adafruit UART Service (already enabled by default?");
+    Serial.println("   : send '#' to enable Adafruit UART as the Advertised Service");
+    Serial.println("   : send '4' to enable Battery Service");
+    Serial.println("   : send '$' to enable Battery as the Advertised Service");
+    Serial.println("   : send '5' to enable LBS Service");
+    Serial.println("   : send '%' to enable LBS as the Advertised Service");
     Serial.println("   : Send 'b' or 'B' to begin all enabled services");
   }
   Serial.println(" : Trial Commands:");
   Serial.println("   : Send 'J' via USB to send 'J' to the Tympan");
   Serial.println("   : Send 'v' to send AT command 'GET ADVERT_SERVICE_ID'");
-  Serial.println("   : Send 'q' to send AT command 'BLENOTIFY 1 0 1 9'");
-  Serial.println("   : Send 'w' to send AT command 'BLENOTIFY 2 0 2 aa'");
-  Serial.println("   : Send 'e' to send AT command 'BLENOTIFY 3 0 1 0x41' (which is 65)");
-  Serial.println("   : Send 'r' to send AT command 'BLENOTIFY 4 0 4 0x42C80000' (which is 100.0)");
-  Serial.println("   : Send 't' to send AT command 'BLENOTIFY 4 1 4 5678'");
+  Serial.println("   : Send 'q' to send AT command 'BLEWRITE 1 6 5 Zelda'");
+  Serial.println("   : Send 'w' to send AT command 'BLENOTIFY 2 0 1 9'");
+  Serial.println("   : Send 'e' to send AT command 'BLENOTIFY 3 0 2 aa'");
+  Serial.println("   : Send 'r' to send AT command 'BLENOTIFY 4 0 1 0x41' (which is 65)");
+  Serial.println("   : Send 't' to send AT command 'BLENOTIFY 5 0 4 0x42C80000' (which is 100.0)");
+  Serial.println("   : Send 'y' to send AT command 'BLENOTIFY 5 1 4 5678'");
 }
 
 int serialManager_processCharacter(char c) {
@@ -118,27 +121,30 @@ int serialManager_processCharacter(char c) {
       issueATCommand(String("GET ADVERT_SERVICE_ID"));
       break;
     case 'q':
-      issueATCommand(String("BLENOTIFY 1 0 1 9"));
+      issueATCommand(String("BLEWRITE 1 6 5 Zelda"));
       break;
     case 'w':
-      issueATCommand(String("BLENOTIFY 2 0 2 aa"));
+      issueATCommand(String("BLENOTIFY 2 0 1 9"));
       break;
     case 'e':
-      {
-        const unsigned int len_msg = 17;
-        char message[len_msg] = {'B','L','E','N','O','T','I','F','Y',' ','3',' ','0',' ','1',' ', 0x41};
-        issueATCommand(message,len_msg);
-      }
+      issueATCommand(String("BLENOTIFY 3 0 2 aa"));
       break;
     case 'r':
       {
-        const unsigned int len_msg = 20;
-        char message[len_msg] = {'B','L','E','N','O','T','I','F','Y',' ','4',' ','0',' ','4',' ', 0x42, 0xC8, 0x00, 0x00};
+        const unsigned int len_msg = 17;
+        char message[len_msg] = {'B','L','E','N','O','T','I','F','Y',' ','4',' ','0',' ','1',' ', 0x41};
         issueATCommand(message,len_msg);
       }
       break;
     case 't':
-      issueATCommand(String("BLENOTIFY 4 1 4 5678"));
+      {
+        const unsigned int len_msg = 20;
+        char message[len_msg] = {'B','L','E','N','O','T','I','F','Y',' ','5',' ','0',' ','4',' ', 0x42, 0xC8, 0x00, 0x00};
+        issueATCommand(message,len_msg);
+      }
+      break;
+    case 'y':
+      issueATCommand(String("BLENOTIFY 5 1 4 5678"));
       break;
 
   }

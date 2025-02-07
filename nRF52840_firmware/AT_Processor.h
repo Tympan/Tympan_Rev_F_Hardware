@@ -229,7 +229,7 @@ int AT_Processor::processSerialCharacterAsBleMessage(char c) {
       if (c == ' ') {
         //interpret the first character as the id
         ble_nbytes = (int)(getFirstCharInBuffer() - '0');
-        if ((ble_nbytes > 0) && (ble_nbytes < 10)) {
+        if ((ble_nbytes > 0) && (ble_nbytes < 128)) {
           //valid!
           rx_mode = RXMODE_LOOK_FOR_DATABYTES;
           serial_read_ind = serial_write_ind;  //clear any remaining message
@@ -484,7 +484,7 @@ int AT_Processor::processSetMessageInSerialBuff(void) {
     serial_read_ind = (serial_read_ind + test_n_char) % AT_PROCESSOR_N_BUFFER; //increment the reader index for the serial buffer
     //get the service number
     char next_char = getFirstCharInBuffer();
-    if ((next_char >= '0') & (next_char <= '9')) {
+    if (next_char >= '0') {
       int service_id = (int)(next_char-'0');
       //look for the equal sign
       next_char = getFirstCharInBuffer();

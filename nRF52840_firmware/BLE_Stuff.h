@@ -11,6 +11,7 @@
 #include "AT_Processor.h"
 #include "BLEUart_Adafruit.h"
 #include "BLEUart_Tympan.h"
+#include "BLE_BleDis.h"
 #include "BLE_BattService.h"
 #include "BLE_LedService.h"
 
@@ -39,19 +40,19 @@ BLEService *serviceToAdvertise = nullptr;
 
 //Create the nRF52 BLE elements (the firmware on the nRF BLE Hardware itself)
 BLEDfu            bledfu;  // Adafruit's built-in OTA DFU service
-BLEDis            bledis;  // Adafruit's built-in device information service
-BLEUart_Tympan    bleUart_Tympan;    //Tympan extension of the Adafruit UART service that allows us to change the Service and Characteristic UUIDs
-BLEUart_Adafruit  bleUart_Adafruit;  //Adafruit's built-in UART service
+BLE_BleDis        ble_bleDis;       // Adafruit's built-in device information service, wrapped
+BLEUart_Tympan    bleUart_Tympan;   //Tympan extension of the Adafruit UART service that allows us to change the Service and Characteristic UUIDs
+BLEUart_Adafruit  bleUart_Adafruit; //Adafruit's built-in UART service
 BLE_BattService   ble_battService;  // battery service
 BLE_LedButtonService_4bytes    ble_lbs_4bytes;
 //AT_Processor    AT_interpreter(&bleUart_Tympan, &SERIAL_TO_TYMPAN);  //interpreter for the AT command set that we're inventing
 AT_Processor      AT_interpreter(&bleUart_Tympan, &bleUart_Adafruit, &SERIAL_TO_TYMPAN);  //interpreter for the AT command set that we're inventing
 
 // Define a container for holding BLE Services that might need to get invoked independently later
-#define MAX_N_PRESET_SERVICES 10
+#define MAX_N_PRESET_SERVICES 16
 BLE_Service_Preset* all_service_presets[MAX_N_PRESET_SERVICES];
-bool flag_activateServicePreset[MAX_N_PRESET_SERVICES] = {true, true, true, false, false, false, false, false, false, false};
-int service_preset_to_ble_advertise = 1;  //which of the presets to include in the advertising.  could be overwritten
+bool flag_activateServicePreset[MAX_N_PRESET_SERVICES] = {true, true, true, true, false, false, false, false, false, false, false, false, false, false, false, false};
+int service_preset_to_ble_advertise = 2;  //which of the presets to include in the advertising.  could be overwritten
 
 // callback invoked when central connects
 void connect_callback(uint16_t conn_handle)
@@ -172,7 +173,7 @@ int setAdvertisingServiceToPresetById(int preset_id) {
 }
 
 void beginAllBleServices(int setup_config_id) {
-  int preset_id = 0;
+  int preset_id;
 
   bleBegun = true;
   // set the MAC address
@@ -187,27 +188,32 @@ void beginAllBleServices(int setup_config_id) {
   Bluefruit.Periph.setDisconnectCallback(disconnect_callback);
 
   // To be consistent OTA DFU should be added first if it exists
+  preset_id = 0;
   bledfu.begin(); // makes it possible to do OTA DFU
 
   // Configure and Start Device Information Service
-  bledis.setManufacturer(manufacturerName); //"Flywheel Lab");
-  bledis.setModel(versionString);
-  bledis.begin();
+  preset_id = 1;
+  if (flag_activateServicePreset[preset_id]) {
+    ble_bleDis.setManufacturer(manufacturerName); //"Flywheel Lab");
+    ble_bleDis.setModel(versionString);
+    ble_bleDis.begin(preset_id);
+    all_service_presets[preset_id] = &ble_bleDis;
+  }
 
   // Configure and begin all of the other services (as requested)
-  for (preset_id == 1; preset_id < MAX_N_PRESET_SERVICES; preset_id++) {  //start at 1, assuming 0 is always the dfu service
+  for (preset_id == 2; preset_id < MAX_N_PRESET_SERVICES; preset_id++) {  //start at 1, assuming 0 is always the dfu service
     if (flag_activateServicePreset[preset_id]) {
       switch (preset_id) {
-        case 1:
+        case 2:
           bleUart_Tympan.begin(preset_id); all_service_presets[preset_id] = &bleUart_Tympan;  //begin the service and add it to the array holding all active services
           break;
-        case 2:
+        case 3:
           bleUart_Adafruit.begin(preset_id); all_service_presets[preset_id] = &bleUart_Adafruit; //begin the service and add it to the array holding all active services
           break;
-        case 3:
+        case 4:
           ble_battService.begin(preset_id); all_service_presets[preset_id] = &ble_battService; //begin the service and add it to the array holding all active service
           break;
-        case 4:
+        case 5:
           ble_lbs_4bytes.begin(preset_id); all_service_presets[preset_id] = &ble_lbs_4bytes; //begin the service and add it to the array holding all active services
           break;
         //add more cases here  

@@ -35,7 +35,7 @@
     MIT License, use at your own risk.
  */
 
-#define DEBUG_VIA_USB false
+#define DEBUG_VIA_USB true
 
 #define SERIAL_TO_TYMPAN Serial1                 //use this when physically wired to a Tympan. Assumes that the nRF is connected via Serial1 pins
 #define SERIAL_FROM_TYMPAN Serial1               //use this when physically wired to a Tympan. Assumes that the nRF is connected via Serial1 pins
@@ -46,6 +46,7 @@
 #include <Adafruit_LittleFS.h>
 #include <InternalFileSystem.h>
 #include "BLEUart_Adafruit.h"
+#include "BLE_BleDis.h"
 #include "BLEUart_Tympan.h"
 #include "BLE_Stuff.h"
 #include "LED_controller.h"
