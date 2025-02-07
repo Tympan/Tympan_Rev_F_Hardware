@@ -44,15 +44,18 @@ BLE_BleDis        ble_bleDis;       // Adafruit's built-in device information se
 BLEUart_Tympan    bleUart_Tympan;   //Tympan extension of the Adafruit UART service that allows us to change the Service and Characteristic UUIDs
 BLEUart_Adafruit  bleUart_Adafruit; //Adafruit's built-in UART service
 BLE_BattService   ble_battService;  // battery service
-BLE_LedButtonService_4bytes    ble_lbs_4bytes;
+BLE_LedButtonService           ble_lbs; //standard Nordic LED Button Serice (1 byte of data)
+BLE_LedButtonService_4bytes    ble_lbs_4bytes; //modified Nordic LED Button Service using 4 bytes of data
 //AT_Processor    AT_interpreter(&bleUart_Tympan, &SERIAL_TO_TYMPAN);  //interpreter for the AT command set that we're inventing
 AT_Processor      AT_interpreter(&bleUart_Tympan, &bleUart_Adafruit, &SERIAL_TO_TYMPAN);  //interpreter for the AT command set that we're inventing
 
 // Define a container for holding BLE Services that might need to get invoked independently later
 #define MAX_N_PRESET_SERVICES 16
+const int max_n_preset_services = MAX_N_PRESET_SERVICES;
 BLE_Service_Preset* all_service_presets[MAX_N_PRESET_SERVICES];
-bool flag_activateServicePreset[MAX_N_PRESET_SERVICES] = {true, true, true, true, false, false, false, false, false, false, false, false, false, false, false, false};
-int service_preset_to_ble_advertise = 2;  //which of the presets to include in the advertising.  could be overwritten
+BLE_Service_Preset* activated_service_presets[MAX_N_PRESET_SERVICES];
+bool flag_activateServicePreset[MAX_N_PRESET_SERVICES];   //set to true to activate that preset service
+int service_preset_to_ble_advertise;  //which of the presets to include in the advertising.  will be set in setup
 
 // callback invoked when central connects
 void connect_callback(uint16_t conn_handle)
@@ -165,7 +168,7 @@ int setAdvertisingServiceToPresetById(int preset_id) {
       service_preset_to_ble_advertise = preset_id;
 
       //in case this function gets called after the system is running (or about to begin()), follow through with the next steps, too
-      BLE_Service_Preset* service_ptr = all_service_presets[service_preset_to_ble_advertise];
+      BLE_Service_Preset* service_ptr = activated_service_presets[service_preset_to_ble_advertise];
       if (service_ptr) serviceToAdvertise = service_ptr->getServiceToAdvertise();
       return service_preset_to_ble_advertise;
   }
@@ -191,34 +194,11 @@ void beginAllBleServices(int setup_config_id) {
   preset_id = 0;
   bledfu.begin(); // makes it possible to do OTA DFU
 
-  // Configure and Start Device Information Service
-  preset_id = 1;
-  if (flag_activateServicePreset[preset_id]) {
-    ble_bleDis.setManufacturer(manufacturerName); //"Flywheel Lab");
-    ble_bleDis.setModel(versionString);
-    ble_bleDis.begin(preset_id);
-    all_service_presets[preset_id] = &ble_bleDis;
-  }
-
   // Configure and begin all of the other services (as requested)
-  for (preset_id == 2; preset_id < MAX_N_PRESET_SERVICES; preset_id++) {  //start at 1, assuming 0 is always the dfu service
+  for (preset_id == 1; preset_id < MAX_N_PRESET_SERVICES; preset_id++) {  //start at 1, assuming 0 is always the dfu service
     if (flag_activateServicePreset[preset_id]) {
-      switch (preset_id) {
-        case 2:
-          bleUart_Tympan.begin(preset_id); all_service_presets[preset_id] = &bleUart_Tympan;  //begin the service and add it to the array holding all active services
-          break;
-        case 3:
-          bleUart_Adafruit.begin(preset_id); all_service_presets[preset_id] = &bleUart_Adafruit; //begin the service and add it to the array holding all active services
-          break;
-        case 4:
-          ble_battService.begin(preset_id); all_service_presets[preset_id] = &ble_battService; //begin the service and add it to the array holding all active service
-          break;
-        case 5:
-          ble_lbs_4bytes.begin(preset_id); all_service_presets[preset_id] = &ble_lbs_4bytes; //begin the service and add it to the array holding all active services
-          break;
-        //add more cases here  
-
-      }
+      all_service_presets[preset_id]->begin(preset_id); 
+      activated_service_presets[preset_id] = all_service_presets[preset_id];
     }
   }
 
@@ -254,6 +234,25 @@ void setupBLE(){
   deviceName[10] = uniqueID.charAt(13); // [12];
   deviceName[11] = uniqueID.charAt(14); // [13];
 
+  //set the device information
+  ble_bleDis.setManufacturer(manufacturerName); //"Flywheel Lab");
+  ble_bleDis.setModel(versionString);
+
+  //collect all services
+  for (int i=0; i<MAX_N_PRESET_SERVICES; i++) {
+    all_service_presets[i] = nullptr;
+    activated_service_presets[i] = nullptr;
+    flag_activateServicePreset[i] = false;
+  }
+  int i;
+  //i=0; all_service_presets[i] = &ble_bleDis;           flag_activateServicePreset[i] = true;      //always keep activated!...actually, don't even put dfu in the list
+  i=1; all_service_presets[i] = &ble_bleDis;       flag_activateServicePreset[i] = true;      //activate by default
+  i++; all_service_presets[i] = &bleUart_Tympan;   flag_activateServicePreset[i] = true;  service_preset_to_ble_advertise = i; //advertise this one by default
+  i++; all_service_presets[i] = &bleUart_Adafruit; flag_activateServicePreset[i] = true;      //activate by default
+  i++; all_service_presets[i] = &ble_battService;  flag_activateServicePreset[i] = false;     //not active by dfeault
+  i++; all_service_presets[i] = &ble_lbs;          flag_activateServicePreset[i] = false;     //not active by dfeault
+  i++; all_service_presets[i] = &ble_lbs_4bytes;   flag_activateServicePreset[i] = false;     //not active by dfeault
+  
   //this sets up all the BLE services and characteristics
   //beginAllBleServices();
 }
@@ -331,7 +330,7 @@ int sendBleDataByServiceAndChar(int command, int service_id, int char_id, int nb
   int Iservice = 0;
   bool data_sent = false;
   while (Iservice < MAX_N_PRESET_SERVICES) {
-    BLE_Service_Preset *service_ptr = all_service_presets[Iservice];
+    BLE_Service_Preset *service_ptr = activated_service_presets[Iservice];
     if (!service_ptr) {
       //this is not a valid service pointer
       //Serial.println("sendBleDataByServiceAndChar: comparing given service_id " + String(service_id) + " to UNINITIALIZED preset service");

@@ -90,7 +90,6 @@ void setup(void) {
   
     // send some info to the user on the USB Serial Port
     Serial.println("*** nRF52840 Firmware: STARTING ***");
-    printHelpToUSB();
   }
 
   //start the nRF's UART serial port that is physically connected to a Tympan or other microcrontroller (if used)
@@ -108,6 +107,8 @@ void setup(void) {
   //setup BLE and begin
   setupBLE();    //as of Feb 2025, does not automatically start the BLE services
   //startAdv();  // start advertising
+
+  if (DEBUG_VIA_USB) printHelpToUSB();
 }
 
 

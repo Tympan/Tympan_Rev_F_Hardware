@@ -16,7 +16,9 @@
 class BLEUart_Adafruit : public virtual BLEUart, public virtual BLE_Service_Preset
 {
   public:
-    BLEUart_Adafruit(void) : BLEUart(), BLE_Service_Preset() {};
+    BLEUart_Adafruit(void) : BLEUart(), BLE_Service_Preset() {
+      name = "UART (Adafruit)";
+    };
     ~BLEUart_Adafruit(void) override {};
 
     err_t begin(int id) override  //err_t is inhereted from bluefruit.h?

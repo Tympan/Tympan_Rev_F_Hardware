@@ -19,9 +19,12 @@ extern void issueATCommand(const char *, unsigned int);
 extern void issueATCommand(const String&);
 extern bool enablePresetServiceById(int preset_id, bool enable);
 extern int setAdvertisingServiceToPresetById(int preset_id);
+extern const int max_n_preset_services;
+extern BLE_Service_Preset* all_service_presets[];
 
 
 void printHelpToUSB(void) {
+  String foo_str;
   Serial.println("nRF52840 Firmware: Help:");
   Serial.print(  "   : Version string: "); Serial.println(versionString);
   Serial.println(" : Status:");
@@ -31,16 +34,18 @@ void printHelpToUSB(void) {
   if (bleBegun == false) {
     Serial.println(" : Configuration:");
     Serial.println("   : Send 'M' to set MAC address to AABBCCEEDDFF");
-    Serial.println("   : send '1' to enable Device Information Service (already enabled by default)");
-    Serial.println("   : send '!' to enable Device Information Service as the Advertised Service");
-    Serial.println("   : send '2' to enable Tympan UART Service (already enabled by default");
-    Serial.println("   : send '@' to enable Tympan UART as the Advertised Service");
-    Serial.println("   : send '3' to enable Adafruit UART Service (already enabled by default?");
-    Serial.println("   : send '#' to enable Adafruit UART as the Advertised Service");
-    Serial.println("   : send '4' to enable Battery Service");
-    Serial.println("   : send '$' to enable Battery as the Advertised Service");
-    Serial.println("   : send '5' to enable LBS Service");
-    Serial.println("   : send '%' to enable LBS as the Advertised Service");
+    Serial.println("   : send '1' to enable service: " + String(all_service_presets[1]->getName(foo_str)));
+    Serial.println("   : send '!' to enable advertising of service: " + String(all_service_presets[1]->getName(foo_str)));
+    Serial.println("   : send '2' to enable service: " + String(all_service_presets[2]->getName(foo_str)));
+    Serial.println("   : send '@' to enable advertising of service: " + String(all_service_presets[2]->getName(foo_str)));
+    Serial.println("   : send '3' to enable service: " + String(all_service_presets[3]->getName(foo_str)));
+    Serial.println("   : send '#' to enable advertising of service: " + String(all_service_presets[3]->getName(foo_str)));
+    Serial.println("   : send '4' to enable service: " + String(all_service_presets[4]->getName(foo_str)));
+    Serial.println("   : send '$' to enable advertising of service: " + String(all_service_presets[4]->getName(foo_str)));
+    Serial.println("   : send '5' to enable service: " + String(all_service_presets[5]->getName(foo_str)));
+    Serial.println("   : send '%' to enable advertising of service: " + String(all_service_presets[5]->getName(foo_str)));
+    Serial.println("   : send '6' to enable service: " + String(all_service_presets[6]->getName(foo_str)));
+    Serial.println("   : send '^' to enable advertising of service: " + String(all_service_presets[6]->getName(foo_str)));
     Serial.println("   : Send 'b' or 'B' to begin all enabled services");
   }
   Serial.println(" : Trial Commands:");
@@ -50,8 +55,10 @@ void printHelpToUSB(void) {
   Serial.println("   : Send 'w' to send AT command 'BLENOTIFY 2 0 1 9'");
   Serial.println("   : Send 'e' to send AT command 'BLENOTIFY 3 0 2 aa'");
   Serial.println("   : Send 'r' to send AT command 'BLENOTIFY 4 0 1 0x41' (which is 65)");
-  Serial.println("   : Send 't' to send AT command 'BLENOTIFY 5 0 4 0x42C80000' (which is 100.0)");
-  Serial.println("   : Send 'y' to send AT command 'BLENOTIFY 5 1 4 5678'");
+  Serial.println("   : Send 't' to send AT command 'BLENOTIFY 5 0 1 0x63'");
+  Serial.println("   : Send 'y' to send AT command 'BLENOTIFY 5 1 1 0x64'");
+  Serial.println("   : Send 'u' to send AT command 'BLENOTIFY 6 0 4 0x42C80000' (which is 100.0)");
+  Serial.println("   : Send 'i' to send AT command 'BLENOTIFY 6 1 4 5678'");
 }
 
 int serialManager_processCharacter(char c) {
@@ -61,8 +68,9 @@ int serialManager_processCharacter(char c) {
       printHelpToUSB();
       break;
     case 'b':
-      Serial.println("nRF52840 Firmware: starting all BLE services (default)...");
-      beginAllBleServices(1);
+      //Serial.println("nRF52840 Firmware: starting all BLE services (default)...");
+      //beginAllBleServices(1);
+      issueATCommand(String("BEGIN 1"));
       break;
     case 'B':
       issueATCommand(String("SET BEGIN=1"));
@@ -92,6 +100,17 @@ int serialManager_processCharacter(char c) {
       //enablePresetServiceById((int)(c - '0'),true);
       issueATCommand("SET ENABLE_SERVICE_ID4=TRUE");
       break;
+    case '5':
+      Serial.println("nRF52840 Firmware: enabling preset " + String(c));
+      //enablePresetServiceById((int)(c - '0'),true);
+      issueATCommand("SET ENABLE_SERVICE_ID5=TRUE");
+      break;
+    case '6':
+      Serial.println("nRF52840 Firmware: enabling preset " + String(c));
+      //enablePresetServiceById((int)(c - '0'),true);
+      issueATCommand("SET ENABLE_SERVICE_ID6=TRUE");
+      break;
+  
     case '!':
       Serial.println("nRF52840 Firmware: choose preset 1 for advertising");
       //setAdvertisingServiceToPresetById(1);
@@ -111,6 +130,16 @@ int serialManager_processCharacter(char c) {
       Serial.println("nRF52840 Firmware: choose preset 4 for advertising");
       //setAdvertisingServiceToPresetById(4);
       issueATCommand("SET ADVERT_SERVICE_ID=4");
+      break; 
+    case '%':
+      Serial.println("nRF52840 Firmware: choose preset 4 for advertising");
+      //setAdvertisingServiceToPresetById(4);
+      issueATCommand("SET ADVERT_SERVICE_ID=5");
+      break; 
+    case '^':
+      Serial.println("nRF52840 Firmware: choose preset 4 for advertising");
+      //setAdvertisingServiceToPresetById(4);
+      issueATCommand("SET ADVERT_SERVICE_ID=6");
       break; 
 
     case 'J':
@@ -138,13 +167,27 @@ int serialManager_processCharacter(char c) {
       break;
     case 't':
       {
-        const unsigned int len_msg = 20;
-        char message[len_msg] = {'B','L','E','N','O','T','I','F','Y',' ','5',' ','0',' ','4',' ', 0x42, 0xC8, 0x00, 0x00};
+        const unsigned int len_msg = 17;
+        char message[len_msg] = {'B','L','E','N','O','T','I','F','Y',' ','5',' ','0',' ','1',' ', 0x63};
         issueATCommand(message,len_msg);
       }
       break;
     case 'y':
-      issueATCommand(String("BLENOTIFY 5 1 4 5678"));
+      {
+        const unsigned int len_msg = 17;
+        char message[len_msg] = {'B','L','E','N','O','T','I','F','Y',' ','5',' ','1',' ','1',' ', 0x64};
+        issueATCommand(message,len_msg);
+      }
+      break;
+    case 'u':
+      {
+        const unsigned int len_msg = 20;
+        char message[len_msg] = {'B','L','E','N','O','T','I','F','Y',' ','6',' ','0',' ','4',' ', 0x42, 0xC8, 0x00, 0x00};
+        issueATCommand(message,len_msg);
+      }
+      break;
+    case 'i':
+      issueATCommand(String("BLENOTIFY 6 1 4 5678"));
       break;
 
   }

@@ -17,13 +17,16 @@
 //define services and characteristics for a pre-set available to be invoked by the Tympan user at startup
 class BLE_BleDis : public virtual BLEDis, public virtual BLE_Service_Preset {
   public:
-    BLE_BleDis(void) : BLEDis(), BLE_Service_Preset() {};
+    BLE_BleDis(void) : BLEDis(), BLE_Service_Preset() {
+      name = "Device Information Service";
+    };
     ~BLE_BleDis(void) override {};
   
     err_t begin(int id) override  //err_t is inhereted from bluefruit.h?
     {
       BLE_Service_Preset::begin(id); //sets service_id
       return BLEDis::begin();
+      hasBegun = true;
     }
 
     //additional methods required by BLE_Service_Preset
@@ -64,18 +67,22 @@ class BLE_BleDis : public virtual BLEDis, public virtual BLE_Service_Preset {
       }
 
       //restart the servicewith the new info
-      if (ret_val != 0) BLEDis::begin();
+      if (hasBegun) {
+        if (ret_val != 0) BLEDis::begin();
+      }
 
       return ret_val;
    }
-
-
 
     BLEService* getServiceToAdvertise(void) override { return this; }
 
     //define how many characteristics and what their ID numbes are
     const int nchars = 9;  //max number of characteristics
     const int char_ids[9]  = {0,1,2,3,4,5,6,7,8};  //characteristic ids.  default.  might get overwritten
+
+    protected:
+      bool hasBegun = false;
+
 };
 
 #endif

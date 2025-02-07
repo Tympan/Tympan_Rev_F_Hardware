@@ -17,6 +17,7 @@ class BLEUart_Tympan : public virtual BLEUart, public virtual BLE_Service_Preset
 {
   public:
     BLEUart_Tympan(void) : BLEUart(), BLE_Service_Preset() {
+      name = "UART (Tympan)";
        myBleChar = new BLECharacteristic(this_characteristicUUID, BLENotify | BLEWrite); //from #include <bluefruit.h>
     };
     ~BLEUart_Tympan(void) override { delete myBleChar; };

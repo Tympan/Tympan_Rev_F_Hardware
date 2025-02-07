@@ -19,8 +19,11 @@ class BLE_Service_Preset {
     virtual BLEService* getServiceToAdvertise(void) { return nullptr; }
     virtual size_t write( const int char_id, const uint8_t* data, size_t len) { return 0; }; //do nothing by default 
     virtual size_t notify(const int char_id, const uint8_t* data, size_t len) { return 0; }; //do nothing by default
+    virtual String& getName(String &s) { s.remove(0,s.length()); return s += name; }
 
     int service_id = 0; //will get overwritten when actually setup
+    
+    String name = "(no name)";
 };
 
 #endif
