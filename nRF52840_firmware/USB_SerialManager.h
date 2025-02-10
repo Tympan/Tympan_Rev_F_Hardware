@@ -56,7 +56,8 @@ void printHelpToUSB(void) {
   Serial.println("   : Send 'e' to send AT command 'BLENOTIFY 3 0 2 aa'");
   Serial.println("   : Send 'r' to send AT command 'BLENOTIFY 4 0 1 0x41' (which is 65)");
   Serial.println("   : Send 't' to send AT command 'BLENOTIFY 5 0 1 0x63'");
-  Serial.println("   : Send 'y' to send AT command 'BLENOTIFY 5 1 1 0x64'");
+  Serial.println("   : Send 'y' to send AT command 'BLENOTIFY 5 0 1 0x01 (which is 'On')");
+  Serial.println("   : Send 'Y' to send AT command 'BLENOTIFY 5 0 1 0x00 (which is 'Off')");
   Serial.println("   : Send 'u' to send AT command 'BLENOTIFY 6 0 4 0x42C80000' (which is 100.0)");
   Serial.println("   : Send 'i' to send AT command 'BLENOTIFY 6 1 4 5678'");
 }
@@ -175,7 +176,14 @@ int serialManager_processCharacter(char c) {
     case 'y':
       {
         const unsigned int len_msg = 17;
-        char message[len_msg] = {'B','L','E','N','O','T','I','F','Y',' ','5',' ','1',' ','1',' ', 0x64};
+        char message[len_msg] = {'B','L','E','N','O','T','I','F','Y',' ','5',' ','0',' ','1',' ', 0x01};
+        issueATCommand(message,len_msg);
+      }
+      break;
+    case 'Y':
+      {
+        const unsigned int len_msg = 17;
+        char message[len_msg] = {'B','L','E','N','O','T','I','F','Y',' ','5',' ','0',' ','1',' ', 0x00};
         issueATCommand(message,len_msg);
       }
       break;

@@ -37,7 +37,7 @@
     MIT License, use at your own risk.
  */
 
-#define DEBUG_VIA_USB false
+#define DEBUG_VIA_USB true
 
 #define SERIAL_TO_TYMPAN Serial1                 //use this when physically wired to a Tympan. Assumes that the nRF is connected via Serial1 pins
 #define SERIAL_FROM_TYMPAN Serial1               //use this when physically wired to a Tympan. Assumes that the nRF is connected via Serial1 pins
@@ -177,4 +177,72 @@ void serviceGPIO(unsigned long curTime_millis) {
     lastUpdate_millis = curTime_millis;
   }
 } 
+
+// ////////////////////////////////////////////////////////////////////// 
+/*
+* DataStreams: Besides the single-character and four-character modes, there are also
+			data streaming modes to support specialized communication.  These special modes
+			are not inteded to be invoked by a user's GUI, so they can be ignored.  To avoid
+			inadvertently invoking these modes, never send characters such as 0x02, 0x03, 0x04.
+			In fact, you should generally avoid any non-printable character or you risk seeing
+			unexpected behavior.
+
+			Datastreams expect the following message protocol.  Note that the message length and
+			payload are sent as little endian (LSB, MSB):
+			 	1.	DATASTREAM_START_CHAR 	(0x02)
+				2.	Message Length (int32): number of bytes including parts-4 thru part-6
+				3.	DATASTREAM_SEPARATOR 	(0x03)
+				4.	Message Type (char): Avoid using the special characters 0x03 or 0x04.  (if set
+							to ‘test’, it will print out the payload as an int, then a float)
+				5.	DATASTREAM_SEPARATOR 	(0x03)
+				6.	Payload
+				7.	DATASTREAM_END_CHAR 	(0x04)
+
+			Use RealTerm to send a 'test' message: 
+			0x02 0x0D 0x00 0x00 0x00 0x03 0x74 0x65 0x73 0x74 0x03 0xD2 0x02 0x96 0x49 0xD2 0x02 0x96 0x49 0x04
+				1. DATASTREAM_START_CHAR 	(0x02)
+				2.	Message Length (int32): (0x000D) = 13 
+				3.	DATASTREAM_SEPARATOR 	(0x03)
+				4.	Message Type (char): 	(0x74657374) = 'test'
+				5.	DATASTREAM_SEPARATOR 	(0x03)
+				6.	Payload					(0x499602D2, 0x499602D2) = [1234567890, 1234567890]
+				7.	DATASTREAM_END_CHAR 	(0x04)
+*/
+#define DATASTREAM_START_CHAR (0x02)
+#define DATASTREAM_SEPARATOR 	(0x03)
+#define DATASTREAM_END_CHAR 	(0x04)
+void globalWriteBleDataToTympan(const int service_id, const int char_id, uint8_t data[], const size_t len) {
+  if (len <= 0) return;
+
+  //prepare for transmission
+  char msg_type[] = "BLEDATA";
+  char service_id_txt[3] = {0};
+  if (service_id < 10) { service_id_txt[0] = service_id + '0'; } else { uint32_t tens = (int)(service_id/10); service_id_txt[0] = tens + '0'; service_id_txt[1] = (service_id - 10*tens) + '0'; }
+  char char_id_txt[3] = {0};
+  if (char_id < 10) { char_id_txt[0] = char_id + '0'; } else { uint32_t tens = (int)(char_id/10); char_id_txt[0] = tens + '0'; char_id_txt[1] = (char_id - 10*tens) + '0'; }
+  uint32_t tot_len = strlen(msg_type) + 1 + strlen(service_id_txt) + 1 + strlen(char_id_txt) + 1 + len;
+  
+  // Copy to a byte array
+  uint32_t header_len = 1+4+1;
+  uint32_t footer_len = 1;
+  uint32_t msg_len = header_len + tot_len + footer_len;
+  uint8_t msg[msg_len];
+  uint32_t next_char = 0;
+  msg[next_char++] = DATASTREAM_START_CHAR;
+  for (int i=0; i<4; i++) msg[next_char++] = (uint8_t)(0x000000FF & (tot_len >> (i*8)));
+  msg[next_char++] = DATASTREAM_SEPARATOR;
+  for (int i=0; i<strlen(msg_type); i++) msg[next_char++] = msg_type[i];
+  msg[next_char++] = DATASTREAM_SEPARATOR;
+  for (int i=0; i<strlen(service_id_txt); i++) msg[next_char++] = service_id_txt[i];
+  msg[next_char++] = DATASTREAM_SEPARATOR;
+  for (int i=0; i<strlen(char_id_txt); i++) msg[next_char++] = char_id_txt[i];
+  msg[next_char++] = DATASTREAM_SEPARATOR;
+  for (int i=0; i<len; i++) msg[next_char++] = data[i];
+  msg[next_char++] = DATASTREAM_END_CHAR;
+  if ((next_char-1) > msg_len) Serial.println("globalWriteBleDataToTympan: *** ERROR ***: message length (" + String(next_char) + ") is larger than allocated (" + String(msg_len) + ")");
+
+  //send the data
+  Serial.print("globalWriteBleDataToTympan: Sending: "); Serial.write(msg,msg_len);Serial.println();
+  SERIAL_TO_TYMPAN.write(msg,msg_len);
+}
 

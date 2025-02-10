@@ -13,17 +13,23 @@
 
 #include <bluefruit.h>
 #include "BLE_Service_Preset.h"
+//include <functional>
+#include <vector>
 
 class BLE_LedButtonService : public virtual BLE_Service_Preset {
   public:
     BLE_LedButtonService(void) : BLE_Service_Preset() {
       name = "LED Button Service (Nordic)";
-      lbs = new BLEService(LBS_UUID_SERVICE);
-      lbsButton = new BLECharacteristic(LBS_UUID_CHR_BUTTON);
-      lbsLED = new BLECharacteristic(LBS_UUID_CHR_LED);
+      lbs = new BLEService(LBS_UUID_SERVICE);                  self_ptr_table.push_back(this);
+      lbsButton = new BLECharacteristic(LBS_UUID_CHR_BUTTON);  characteristic_ptr_table.push_back(lbsButton);
+      lbsLED = new BLECharacteristic(LBS_UUID_CHR_LED);        characteristic_ptr_table.push_back(lbsLED);
+
+      char1_name += "Button";
+      char2_name += "LED";
     }
     ~BLE_LedButtonService(void) override {
       delete lbsLED;  delete lbsButton;   delete lbs;
+      //TBD: remove the service from the static table self_ptr_table
     }
     err_t begin(int id) override {  //err_t is inhereted from bluefruit.h?
       BLE_Service_Preset::begin(id); //sets service_id
@@ -38,23 +44,42 @@ class BLE_LedButtonService : public virtual BLE_Service_Preset {
       // Properties = Boradcast + Notify + Read
       // Permission = Open to read, Open to write
       // Fixed Len  = 4 (bytes...per screenshot of our own App)
-      lbsButton->setProperties(CHR_PROPS_BROADCAST | CHR_PROPS_NOTIFY | CHR_PROPS_READ);
+      lbsButton->setProperties(char1_props);
       lbsButton->setPermission(SECMODE_OPEN, SECMODE_OPEN );  //allow to read, allow to write
       lbsButton->setFixedLen(nbytes_per_characteristic);
+      lbsButton->setUserDescriptor(char1_name.c_str());
       lbsButton->begin();
-      lbsButton->write32(0x00010203);  //init value.  Appears in NordicConnect in the reverse byte order of shown here
+      if (char1_props & (CHR_PROPS_NOTIFY | CHR_PROPS_READ)) { //can this characteristic send data out?
+        if (nbytes_per_characteristic == 1) {
+          lbsButton->write8(0x01);  //init value.  Appears in NordicConnect in the reverse byte order of shown here
+        } else if  (nbytes_per_characteristic == 2) { 
+          lbsButton->write16(0x0102);  //init value.  Appears in NordicConnect in the reverse byte order of shown here
+        } else if (nbytes_per_characteristic == 4) {
+          lbsButton->write32(0x00010203);  //init value.  Appears in NordicConnect in the reverse byte order of shown here
+        }
+      }
 
       // Configure the LED characteristic...updated by Chip Audette
       // Properties = Boradcast + Notify + Ready
       // Permission = Open to read, Open to write
       // Fixed Len  = 4 (bytes...per screenshot of our own App)
-      lbsLED->setProperties(CHR_PROPS_BROADCAST | CHR_PROPS_NOTIFY | CHR_PROPS_READ);
+      lbsLED->setProperties(char2_props);
       lbsLED->setPermission(SECMODE_OPEN, SECMODE_OPEN );  //allow to read, allow to write
       lbsLED->setFixedLen(nbytes_per_characteristic);
+      lbsLED->setUserDescriptor(char2_name.c_str());
       lbsLED->begin();
-      lbsLED->write32(0x00040506);  //init value. Appears in NordicConnect in the reverse byte order of shown here
-
-      // lbsLED->setWriteCallback(led_write_callback);
+      if (char2_props & (CHR_PROPS_NOTIFY | CHR_PROPS_READ)) { //can this characteristic send data out?
+        if (nbytes_per_characteristic == 1) {
+          lbsLED->write8(0x01);  //init value.  Appears in NordicConnect in the reverse byte order of shown here
+        } else if  (nbytes_per_characteristic == 2) { 
+          lbsLED->write16(0x0405);  //init value.  Appears in NordicConnect in the reverse byte order of shown here
+        } else if (nbytes_per_characteristic == 4) {
+          lbsLED->write32(0x00040506);  //init value.  Appears in NordicConnect in the reverse byte order of shown here
+        }
+      }
+      if (char2_props & CHR_PROPS_WRITE) { //can this charcterisitc receive data in?
+        lbsLED->setWriteCallback(BLE_LedButtonService::led_write_callback); //must be a static function
+      }
       return (err_t)0;
     }
     BLEService* getServiceToAdvertise(void) override {
@@ -88,16 +113,7 @@ class BLE_LedButtonService : public virtual BLE_Service_Preset {
       return 0;
     }
 
-    // void led_write_callback(uint16_t conn_hdl, BLECharacteristic* chr, uint8_t* data, uint16_t len)
-    // {
-    //   (void) conn_hdl;
-    //   (void) chr;
-    //   (void) len; // len should be 1
-
-    //   // data = 1 -> LED = On
-    //   // data = 0 -> LED = Off
-    //   setLED(data[0]);
-    // }
+    static void led_write_callback(uint16_t conn_hdl, BLECharacteristic* chr, uint8_t* data, uint16_t len);
 
         
     /* Nordic Led-Button Service (LBS)LBS_UUID_SERVICE
@@ -127,12 +143,21 @@ class BLE_LedButtonService : public virtual BLE_Service_Preset {
     uint8_t nbytes_per_characteristic = 1;
     const int nchars = 2;
     const int char_ids[2]  = {0,1};  //default.  might get overwritten
+    uint8_t char1_props = CHR_PROPS_NOTIFY | CHR_PROPS_READ;
+    uint8_t char2_props = CHR_PROPS_WRITE;
     BLEService *lbs;
     BLECharacteristic *lbsButton;
     BLECharacteristic *lbsLED;
+    String char1_name;
+    String char2_name;
+    static std::vector<BLE_LedButtonService *> self_ptr_table;
+    std::vector<BLECharacteristic *>characteristic_ptr_table;
   private:
 
 };
+
+//initialize the static variables
+std::vector<BLE_LedButtonService*> BLE_LedButtonService::self_ptr_table = {};
 
 //define services and characteristics for a pre-set available to be invoked by the Tympan user at startup
 class BLE_LedButtonService_4bytes : public virtual BLE_LedButtonService {
@@ -140,10 +165,58 @@ class BLE_LedButtonService_4bytes : public virtual BLE_LedButtonService {
     BLE_LedButtonService_4bytes(void) : BLE_LedButtonService() {
       name = "LED Button Service (4-Byte)";
       nbytes_per_characteristic = 4;
+      char1_name += " (4 bytes)";
+      char2_name += " (4 bytes)";
+      char1_props = CHR_PROPS_NOTIFY | CHR_PROPS_READ;
+      char2_props = CHR_PROPS_NOTIFY | CHR_PROPS_READ;
     }
     ~BLE_LedButtonService_4bytes(void) override { }
 
 
 };
+
+
+void BLE_LedButtonService::led_write_callback(uint16_t conn_hdl, BLECharacteristic* chr, uint8_t* data, uint16_t len)
+{
+  int service_id = -1, char_id = -1;
+
+  //find matching service UUID in the static table
+  BLEService* svc= &chr->parentService();
+  for (size_t I = 0; I < BLE_LedButtonService::self_ptr_table.size(); ++I) {
+    if (((BLE_LedButtonService::self_ptr_table[I])->lbs)->uuid == svc->uuid) {
+      //found the service pointer
+
+      //Now, find matching chracteristic UUID in its table of characteristic ids
+      BLE_LedButtonService* foo_ble_svc_ptr = BLE_LedButtonService::self_ptr_table[I];
+      service_id = foo_ble_svc_ptr->service_id;
+      for (size_t J=0; J < foo_ble_svc_ptr->characteristic_ptr_table.size(); ++J) {
+        if ((foo_ble_svc_ptr->characteristic_ptr_table[J])->uuid == chr->uuid) {
+          char_id = J;
+        }
+      }
+      break;
+    }
+  }
+
+  Serial.print("BLE_LedService: led_write_callback:");
+  Serial.print(" Recevied value = " + String(data[0]));
+  //Serial.print(", from: "); Serial.print(central_name);
+  if (service_id >= 0) { 
+    Serial.print(", from service_id: " + String(service_id));
+  } else {
+    Serial.print(", from service UUID: " ); Serial.print(svc->uuid.toString());
+  }
+  if (char_id >= 0) {
+    Serial.print(", from char_id: " + String(char_id));
+  } else {
+    Serial.print(", from char UUID: "); Serial.print(chr->uuid.toString());
+  }
+  Serial.println();
+
+  //push the data to the Tympan
+  if ((service_id >= 0) && (char_id >= 0)) BLE_Service_Preset::writeBleDataToTympan(service_id, char_id, data, len);
+}
+
+
 
 #endif
