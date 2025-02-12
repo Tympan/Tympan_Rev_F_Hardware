@@ -400,8 +400,8 @@ int AT_Processor::processSetMessageInSerialBuff(void) {
     //Serial.println("AT_Processor: processSetMessageInSerialBuff: interpreting MAC");
     serial_read_ind = (serial_read_ind + test_n_char) % AT_PROCESSOR_N_BUFFER; //increment the reader index for the serial buffer
     if (bleBegun == true) {
-      if (DEBUG_VIA_USB) Serial.println("AT_Processor: processSetMessageInSerialBuff: SET MAC: FAILED: Cannot set MAC after begun");
-      sendSerialFailMessage("SET MAC: FAILED: Cannot set MAC after ble has been begun");
+      if (DEBUG_VIA_USB) Serial.println("AT_Processor: processSetMessageInSerialBuff: SET MAC: Cannot set MAC after begun");
+      sendSerialFailMessage("SET MAC: Cannot set MAC after ble has been begun");
     } else {
       if (DEBUG_VIA_USB) {
         Serial.print("AT_Processor: processSetMessageInSerialBuff: setting MAC to ");
@@ -414,13 +414,13 @@ int AT_Processor::processSetMessageInSerialBuff(void) {
         sendSerialOkMessage();
         //if (DEBUG_VIA_USB) Serial.println("AT_Processor: processSetMessageInSerialBuff: SET MAC: SUCCESS!");
       } else if (ret_val == DATA_WRONG_SIZE) {
-        sendSerialFailMessage("SET MAC: FAILED: Given MAC address is wrong size");
+        sendSerialFailMessage("SET MAC: Given MAC address is wrong size");
         if (DEBUG_VIA_USB) Serial.println("AT_Processor: processSetMessageInSerialBuff: SET MAC: FAILED: Given MAC address is wrong size");
       } else if (ret_val == DATA_WRONG_FORMAT) {
-        sendSerialFailMessage("SET MAC: FAILED: Given MAC address was wrong format");
+        sendSerialFailMessage("SET MAC: Given MAC address was wrong format");
         if (DEBUG_VIA_USB) Serial.println("AT_Processor: processSetMessageInSerialBuff: SET MAC: FAILED: Given MAC address is wrong format");
       } else {
-        sendSerialFailMessage("SET MAC: FAILED: (Reason unknown)");
+        sendSerialFailMessage("SET MAC: (Failure reason unknown)");
         if (DEBUG_VIA_USB) Serial.println("AT_Processor: processSetMessageInSerialBuff: SET MAC: FAILED: (unknown reason)");
       }
       delay(5);
@@ -555,9 +555,9 @@ int AT_Processor::processSetMessageInSerialBuff(void) {
 int AT_Processor::processBeginMessageInSerialBuff(void) {
   int ret_val = setBeginFromSerialBuff();
   if (ret_val == 0) {
-      sendSerialOkMessage();
-    } else {
-      sendSerialFailMessage("SET BEGIN failed");
+    sendSerialOkMessage();
+  } else {
+    sendSerialFailMessage("SET BEGIN failed");
   }
   serial_read_ind = serial_write_ind;  //remove the message
   return ret_val;  
@@ -755,8 +755,8 @@ int AT_Processor::setMacAddressFromSerialBuff(void) {
       bool done = false;
       int targ_ind = 0;
       while (!done) {
-        char c = serial_buff[serial_read_ind++];
-        if ((c >= 0) && (c <= 9) || ((c >= 'A') && (c <= 'F')) || ((c >= 'a') && (c <= 'f'))) {
+        char c = serial_buff[serial_read_ind++];  //get character and increment index to the next character
+        if ((c >= '0') && (c <= '9') || ((c >= 'A') && (c <= 'F')) || ((c >= 'a') && (c <= 'f'))) {
           //good
           new_mac[targ_ind++] = c;
         } else {
@@ -781,7 +781,7 @@ int AT_Processor::setBleNameFromSerialBuff(void) {
   } else {
     //copy the new name, up to max characters, or until we hit EOC
     static const int max_len_name = 16;  //16 character max?? 
-    char new_name[max_len_name+1]; //11 characters plus the null termination
+    char new_name[max_len_name+1] = {0}; //11 characters plus the null termination
     bool done = false;
     int targ_ind = 0;
     while (!done) {
