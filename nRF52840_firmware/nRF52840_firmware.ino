@@ -232,11 +232,11 @@ void globalWriteBleDataToTympan(const int service_id, const int char_id, uint8_t
   for (int i=0; i<4; i++) msg[next_char++] = (uint8_t)(0x000000FF & (tot_len >> (i*8)));
   msg[next_char++] = DATASTREAM_SEPARATOR;
   for (int i=0; i<strlen(msg_type); i++) msg[next_char++] = msg_type[i];
-  msg[next_char++] = DATASTREAM_SEPARATOR;
+  msg[next_char++] = (uint8_t)' '; //space character
   for (int i=0; i<strlen(service_id_txt); i++) msg[next_char++] = service_id_txt[i];
-  msg[next_char++] = DATASTREAM_SEPARATOR;
+  msg[next_char++] = (uint8_t)' '; //space character
   for (int i=0; i<strlen(char_id_txt); i++) msg[next_char++] = char_id_txt[i];
-  msg[next_char++] = DATASTREAM_SEPARATOR;
+  msg[next_char++] = (uint8_t)' '; //space character;
   for (int i=0; i<len; i++) msg[next_char++] = data[i];
   msg[next_char++] = DATASTREAM_END_CHAR;
   if ((next_char-1) > msg_len) Serial.println("globalWriteBleDataToTympan: *** ERROR ***: message length (" + String(next_char) + ") is larger than allocated (" + String(msg_len) + ")");

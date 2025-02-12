@@ -31,7 +31,7 @@ const char manufacturerName[] = "Flywheel Lab";
 
 // BLE
 uint16_t handle;
-char BLEmessage[MESSAGE_LENGTH];
+char BLEmessage[MESSAGE_LENGTH] ={0};
 boolean bleConnected = false;
 boolean bleBegun = false;
 String uniqueID = "DEADBEEFCAFEDATE"; // [16]; // used to gather the 'serial number' of the chip
