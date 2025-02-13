@@ -245,7 +245,7 @@ void setupBLE(){
     flag_activateServicePreset[i] = false;
   }
   int i;
-  //i=0; all_service_presets[i] = &ble_bleDis;           flag_activateServicePreset[i] = true;      //always keep activated!...actually, don't even put dfu in the list
+  //i=0; all_service_presets[i] = &ble_bleDfu;       flag_activateServicePreset[i] = true;      //always keep activated!...actually, don't even put dfu in the list
   i=1; all_service_presets[i] = &ble_bleDis;       flag_activateServicePreset[i] = true;      //activate by default
   i++; all_service_presets[i] = &bleUart_Tympan;   flag_activateServicePreset[i] = true;  service_preset_to_ble_advertise = i; //advertise this one by default
   i++; all_service_presets[i] = &bleUart_Adafruit; flag_activateServicePreset[i] = true;      //activate by default
