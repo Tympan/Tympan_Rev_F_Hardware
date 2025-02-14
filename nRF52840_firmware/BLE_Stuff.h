@@ -195,7 +195,7 @@ void beginAllBleServices(int setup_config_id) {
   bledfu.begin(); // makes it possible to do OTA DFU
 
   // Configure and begin all of the other services (as requested)
-  for (preset_id == 1; preset_id < MAX_N_PRESET_SERVICES; preset_id++) {  //start at 1, assuming 0 is always the dfu service
+  for (preset_id = 1; preset_id < MAX_N_PRESET_SERVICES; preset_id++) {  //start at 1, assuming 0 is always the dfu service
     if (flag_activateServicePreset[preset_id]) {
       all_service_presets[preset_id]->begin(preset_id); 
       activated_service_presets[preset_id] = all_service_presets[preset_id];
