@@ -28,7 +28,7 @@ class BLE_BattService : public virtual BLEBas, public virtual BLE_Service_Preset
     }
 
     //additional methods required by BLE_Service_Preset
-    size_t write( const int char_id, const uint8_t* data, size_t len) override { bool ret_val = BLEBas::write((uint8_t)data[0]); return (size_t)ret_val; };
+    size_t write( const int char_id, const uint8_t* data, size_t len) override { bool ret_val = BLEBas::write ((uint8_t)data[0]); return (size_t)ret_val; };
     size_t notify(const int char_id, const uint8_t* data, size_t len) override { bool ret_val = BLEBas::notify((uint8_t)data[0]); return (size_t)ret_val; };
     BLEService* getServiceToAdvertise(void) override { return this; }
     
