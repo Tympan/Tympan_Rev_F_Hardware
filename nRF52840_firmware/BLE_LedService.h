@@ -174,9 +174,40 @@ class BLE_LedButtonService_4bytes : public virtual BLE_LedButtonService {
       char3_name += "Flex (4 bytes)";char_ids[2]= 2;
       char1_props = CHR_PROPS_NOTIFY | CHR_PROPS_READ;
       char2_props = CHR_PROPS_NOTIFY | CHR_PROPS_READ;
-      char3_props = CHR_PROPS_WRITE;
+      // char3_props = CHR_PROPS_WRITE  | CHR_PROPS_WRITE_WO_RESP;
+      char3_props = CHR_PROPS_WRITE  | CHR_PROPS_WRITE_WO_RESP;
     }
     ~BLE_LedButtonService_4bytes(void) override { delete lbsStartTest; }
+
+    err_t begin(int id) override {
+      err_t return_val = BLE_LedButtonService::begin(id);
+      
+      // Configure Button characteristic...updated by Chip Audette
+      // Properties = Boradcast + Notify + Read
+      // Permission = Open to read, Open to write
+      // Fixed Len  = 4 (bytes...per screenshot of our own App)
+      lbsStartTest->setProperties(char3_props);
+      lbsStartTest->setPermission(SECMODE_OPEN, SECMODE_OPEN);  //allow to read, allow to write
+      lbsStartTest->setFixedLen(1); // 1? number of bytes expected
+      lbsStartTest->setUserDescriptor(char3_name.c_str());
+      lbsStartTest->begin();
+      if (char3_props & (CHR_PROPS_NOTIFY | CHR_PROPS_READ)) { //can this characteristic send data out?
+        if (nbytes_per_characteristic == 1) {
+          lbsStartTest->write8(0x01);  //init value.  Appears in NordicConnect in the reverse byte order of shown here
+        } else if  (nbytes_per_characteristic == 2) { 
+          lbsStartTest->write16(0x0102);  //init value.  Appears in NordicConnect in the reverse byte order of shown here
+        } else if (nbytes_per_characteristic == 4) {
+          lbsStartTest->write32(0x00010203);  //init value.  Appears in NordicConnect in the reverse byte order of shown here
+        }
+      }
+
+      // write data to tympan?
+      if (char3_props & CHR_PROPS_WRITE) { //can this charcterisitc receive data in?
+        lbsStartTest->setWriteCallback(BLE_LedButtonService::led_write_callback); //must be a static function
+      }
+
+      return return_val;
+    };
 
     const uint8_t LBS_UUID_CHR_STARTBUTTON[16] = //reverse order  of '00001526-1212-EFDE-1523-785FEABCD123'
     {
