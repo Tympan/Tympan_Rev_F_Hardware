@@ -1,0 +1,23 @@
+"SurfaceFinishShaderType" 0
+"blurryReflections" off
+"bumpIsNormalMap" on
+"bumpStrength" 0.001
+"bumpTexture" ""
+"col1" 0.776471 0.756863 0.737255
+"col2" 0.647059 0.619608 0.588235
+"diffuse_factor" 1
+"displacementDistance" 0.001
+"doubleSided" on
+"initTextureHeight" 0.0254
+"initTextureWidth" 0.0254
+"luminousIntensity" 0
+"mtl_ior" 1
+"num_cols" 2
+"reflectivity" 0.3
+"refractionRoughness" 0
+"roughness" 0.7
+"specular_color" 0.898039 0.898039 0.898039
+"specular_factor" 0.7
+"swP2M" on
+"sw_shader" polishedsteel
+"transparency" 0
