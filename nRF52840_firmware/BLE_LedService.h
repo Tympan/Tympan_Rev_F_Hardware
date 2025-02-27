@@ -122,27 +122,28 @@ class BLE_LedButtonService : public virtual BLE_Service_Preset {
     * LBS LED    : 00001525-1212-EFDE-1523-785FEABCD123
     */
 
-    const uint8_t LBS_UUID_SERVICE[16] =
+    const uint8_t LBS_UUID_SERVICE[16] =  //reverse order
     {
       0x23, 0xD1, 0xBC, 0xEA, 0x5F, 0x78, 0x23, 0x15,
       0xDE, 0xEF, 0x12, 0x12, 0x23, 0x15, 0x00, 0x00
     };
 
-    const uint8_t LBS_UUID_CHR_BUTTON[16] =
+    const uint8_t LBS_UUID_CHR_BUTTON[16] = //reverse order
     {
       0x23, 0xD1, 0xBC, 0xEA, 0x5F, 0x78, 0x23, 0x15,
       0xDE, 0xEF, 0x12, 0x12, 0x24, 0x15, 0x00, 0x00
     };
 
-    const uint8_t LBS_UUID_CHR_LED[16] =
+    const uint8_t LBS_UUID_CHR_LED[16] = //reverse order
     {
       0x23, 0xD1, 0xBC, 0xEA, 0x5F, 0x78, 0x23, 0x15,
       0xDE, 0xEF, 0x12, 0x12, 0x25, 0x15, 0x00, 0x00
     };
 
     uint8_t nbytes_per_characteristic = 1;
-    const int nchars = 2;
-    const int char_ids[2]  = {0,1};  //default.  might get overwritten
+    const int max_char_ids = 8;
+    int nchars = 2;
+    int char_ids[8]  = {0};  //default.  might get overwritten
     uint8_t char1_props = CHR_PROPS_NOTIFY | CHR_PROPS_READ;
     uint8_t char2_props = CHR_PROPS_WRITE;
     BLEService *lbs;
@@ -163,15 +164,29 @@ std::vector<BLE_LedButtonService*> BLE_LedButtonService::self_ptr_table = {};
 class BLE_LedButtonService_4bytes : public virtual BLE_LedButtonService {
   public:
     BLE_LedButtonService_4bytes(void) : BLE_LedButtonService() {
+      lbsStartTest = new BLECharacteristic(LBS_UUID_CHR_STARTBUTTON);  
+      characteristic_ptr_table.push_back(lbsStartTest);
+      
       name = "LED Button Service (4-Byte)";
       nbytes_per_characteristic = 4;
-      char1_name += " (4 bytes)";
-      char2_name += " (4 bytes)";
+      char1_name += " (4 bytes)";    char_ids[0] = 0;
+      char2_name += " (4 bytes)";    char_ids[1] = 1;
+      char3_name += "Flex (4 bytes)";char_ids[2]= 2;
       char1_props = CHR_PROPS_NOTIFY | CHR_PROPS_READ;
       char2_props = CHR_PROPS_NOTIFY | CHR_PROPS_READ;
+      char3_props = CHR_PROPS_WRITE;
     }
-    ~BLE_LedButtonService_4bytes(void) override { }
+    ~BLE_LedButtonService_4bytes(void) override { delete lbsStartTest; }
 
+    const uint8_t LBS_UUID_CHR_STARTBUTTON[16] = //reverse order  of '00001526-1212-EFDE-1523-785FEABCD123'
+    {
+      0x23, 0xD1, 0xBC, 0xEA, 0x5F, 0x78, 0x23, 0x15,
+      0xDE, 0xEF, 0x12, 0x12, 0x26, 0x15, 0x00, 0x00
+    };
+
+    BLECharacteristic *lbsStartTest;
+    String char3_name;
+    uint8_t char3_props = CHR_PROPS_WRITE;
 
 };
 
