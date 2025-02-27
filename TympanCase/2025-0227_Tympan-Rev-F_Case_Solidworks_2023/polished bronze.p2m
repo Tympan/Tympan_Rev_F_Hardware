@@ -1,0 +1,23 @@
+"SurfaceFinishShaderType" 0
+"blurryReflections" off
+"bumpIsNormalMap" on
+"bumpStrength" 0.001
+"bumpTexture" ""
+"col1" 0.619608 0.407843 0.2
+"col2" 0.317647 0.247059 0.207843
+"diffuse_factor" 1
+"displacementDistance" 0.001
+"doubleSided" on
+"initTextureHeight" 0.0254
+"initTextureWidth" 0.0254
+"luminousIntensity" 0
+"mtl_ior" 1
+"num_cols" 2
+"reflectivity" 0.65
+"refractionRoughness" 0
+"roughness" 0.7
+"specular_color" 1 0.866667 0.709804
+"specular_factor" 0.5
+"swP2M" on
+"sw_shader" polishedbronze
+"transparency" 0
