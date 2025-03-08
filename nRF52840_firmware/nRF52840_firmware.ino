@@ -47,6 +47,7 @@
 #include <bluefruit.h>
 #include <Adafruit_LittleFS.h>
 #include <InternalFileSystem.h>
+#include "BLE_Generic.h"
 #include "BLEUart_Adafruit.h"
 #include "BLE_BleDis.h"
 #include "BLEUart_Tympan.h"
