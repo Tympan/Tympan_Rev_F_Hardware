@@ -28,7 +28,14 @@ class BLE_LedButtonService : public virtual BLE_Service_Preset {
       char2_name += "LED";
     }
     ~BLE_LedButtonService(void) override {
-      delete lbsLED;  delete lbsButton;   delete lbs;
+      //remove this instance from the static table holding pointers to all instances of BLE_GenericService
+      for (auto i=0; i<self_ptr_table.size(); ++i) { if (self_ptr_table[i] == this) self_ptr_table[i] = nullptr;  }
+
+      //delete BLE characteristics (in reverse order)
+      for (auto i=0; i<characteristic_ptr_table.size(); ++i) { delete characteristic_ptr_table[i];  }
+
+      //delete other pointers
+      delete lbs;
       //TBD: remove the service from the static table self_ptr_table
     }
     err_t begin(int id) override {  //err_t is inhereted from bluefruit.h?
@@ -177,7 +184,9 @@ class BLE_LedButtonService_4bytes : public virtual BLE_LedButtonService {
       // char3_props = CHR_PROPS_WRITE  | CHR_PROPS_WRITE_WO_RESP;
       char3_props = CHR_PROPS_WRITE  | CHR_PROPS_WRITE_WO_RESP;
     }
-    ~BLE_LedButtonService_4bytes(void) override { delete lbsStartTest; }
+    ~BLE_LedButtonService_4bytes(void) override { 
+      //delete lbsStartTest; //automatically gets deleted by parent class when deleting the elements of the characteristic_ptr_table vector
+    }
 
     err_t begin(int id) override {
       err_t return_val = BLE_LedButtonService::begin(id);
