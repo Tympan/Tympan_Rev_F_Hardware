@@ -46,6 +46,7 @@ BLEUart_Adafruit  bleUart_Adafruit; //Adafruit's built-in UART service
 BLE_BattService   ble_battService;  // battery service
 BLE_LedButtonService           ble_lbs; //standard Nordic LED Button Serice (1 byte of data)
 BLE_LedButtonService_4bytes    ble_lbs_4bytes; //modified Nordic LED Button Service using 4 bytes of data
+BLE_GenericService             ble_generic1, ble_generic2, ble_generic3;
 //AT_Processor    AT_interpreter(&bleUart_Tympan, &SERIAL_TO_TYMPAN);  //interpreter for the AT command set that we're inventing
 AT_Processor      AT_interpreter(&bleUart_Tympan, &bleUart_Adafruit, &SERIAL_TO_TYMPAN);  //interpreter for the AT command set that we're inventing
 
@@ -84,53 +85,6 @@ void disconnect_callback(uint16_t conn_handle, uint8_t reason)
   Serial.print(", bleConnected = "); Serial.println(bleConnected);
 }
 
-
-/*
- *  BLEwrite()
- *    Main function that sends data over bluetooth
- *    Checks for open connection
- *    Can send up to 64 ascii characters
- */
-// int BLEwrite(){
-//   int success = 0;
-//   // airString += String('\n');
-//   int counter = 0;
-//   for(int i=0; i<OUT_STRING_LENGTH; i++){
-// 		if(outString[i] == 0){ break; }
-//     BLEmessage[i] = outString[i];
-// 		counter++;
-//   }
-// 	BLEmessage[counter] = '\n';
-// 	counter++;
-//   if(bleConnected){
-//     success = bleuart.write( BLEmessage, counter );
-//   }else{
-//     success = -1;
-//   }
-//   return success;
-// }
-
-/*
- *  BLEwriteInt(int)
- *  concatinates the int with outString
- *  Then calles BLEwrite
- */
-// void BLEwriteInt(int i){
-//   sprintf(numberBuffer, "%d",i);
-//   strcat(outString,numberBuffer);
-//   BLEwrite();
-// }
-
-/*
- *  BLEwriteFloat(String,float,int)
- *  Combines a string with a float and number of decimal places
- *  Then calles BLEwrite
- */
-// void BLEwriteFloat(float f,int dPlaces){
-//   sprintf(numberBuffer, "%.*f", dPlaces, f);
-//   strcat(outString,numberBuffer);
-//   BLEwrite();
-// }
 
 int BLEevent(BLEUart *bleuart_ptr, HardwareSerial *serial_to_tympan) {
   int success = -1;
@@ -249,9 +203,13 @@ void setupBLE(){
   i=1; all_service_presets[i] = &ble_bleDis;       flag_activateServicePreset[i] = true;      //activate by default
   i++; all_service_presets[i] = &bleUart_Tympan;   flag_activateServicePreset[i] = true;  service_preset_to_ble_advertise = i; //advertise this one by default
   i++; all_service_presets[i] = &bleUart_Adafruit; flag_activateServicePreset[i] = true;      //activate by default
-  i++; all_service_presets[i] = &ble_battService;  flag_activateServicePreset[i] = false;     //not active by dfeault
-  i++; all_service_presets[i] = &ble_lbs;          flag_activateServicePreset[i] = false;     //not active by dfeault
-  i++; all_service_presets[i] = &ble_lbs_4bytes;   flag_activateServicePreset[i] = false;     //not active by dfeault
+  i++; all_service_presets[i] = &ble_battService;  flag_activateServicePreset[i] = false;     //not active by default
+  i++; all_service_presets[i] = &ble_lbs;          flag_activateServicePreset[i] = false;     //not active by default
+  i++; all_service_presets[i] = &ble_lbs_4bytes;   flag_activateServicePreset[i] = false;     //not active by default
+  i++; all_service_presets[i] = &ble_generic1;   flag_activateServicePreset[i] = false;     //not active by default
+  i++; all_service_presets[i] = &ble_generic2;   flag_activateServicePreset[i] = false;     //not active by default
+  i++; all_service_presets[i] = &ble_generic3;   flag_activateServicePreset[i] = false;     //not active by default
+  
   
   //this sets up all the BLE services and characteristics
   //beginAllBleServices();
@@ -319,6 +277,8 @@ void stopAdv(void) {
 }
 
 
+
+
 int sendBleDataByServiceAndChar(int command, int service_id, int char_id, int nbytes, const uint8_t *databytes) {
   if (DEBUG_VIA_USB) { 
       Serial.print("sendBleDataByServiceAndChar: BLE Command " + String(command) + ", service = " + String(service_id));
@@ -361,4 +321,163 @@ int sendBleDataByServiceAndChar(int command, int service_id, int char_id, int nb
   if (data_sent == false) return -1;
   return 0;
 }
+
+//UUID is composed of 8 hexadecimal numbers (16 hex characters).  we need to reverse each hex number,
+//which means that we need to step backwards across pairs of characters
+err_t copyUUIDinReverse(const uint8_t *given_uuid, const int len_given_uuid, UUID_t *targ_uuid) {
+  if (len_given_uuid != targ_uuid->len) return (err_t)1; //error, sizes are wrong!
+  int n_vals = (int)(len_given_uuid/2);
+  int source_ind, targ_ind;
+  for (int Ival = 0; Ival < n_vals; ++Ival) {
+    source_ind = (n_vals-Ival-1)*2; //end, moving backwards
+    targ_ind = Ival*2; //start, moving forwards
+    targ_uuid->uuid[targ_ind] = given_uuid[source_ind];
+    targ_uuid->uuid[targ_ind+1] = given_uuid[source_ind+1];
+  }
+  return (err_t)0;  //no error
+}
+
+err_t setServiceUUID(const int ble_service_id, const uint8_t *uuid_chars, const int len_uuid_chars) {
+  //copy the UUID (in reverse order, as required by BLE_GenericService)
+  UUID_t this_uuid;
+  err_t err_code = copyUUIDinReverse(uuid_chars, len_uuid_chars, &this_uuid);
+  if (err_code !=0) return (err_t)1;  //error, wrong size
+
+  //if the service_id is valid for a ble_generic, set the UUID and allow it to be enabled
+  BLE_GenericService *ble_generic = nullptr;
+  if (ble_service_id == 7) {
+    ble_generic = &ble_generic1;
+  } else if (ble_service_id == 8) {
+    ble_generic = &ble_generic2;
+  } else if (ble_service_id == 9) {
+    ble_generic = &ble_generic3;
+  } else {
+    return (err_t)2;  //error didn't recognize the ble_service_id
+  }
+
+  //assuming that we have a valid pointer, go ahead and set the UUID and enable the preset
+  if (ble_generic != nullptr) {
+    ble_generic->setServiceUUID(this_uuid);
+    enablePresetServiceById(ble_service_id, true);
+    return (err_t)0; //no error
+  }
+
+  return (err_t)99;  //we should not get here.  unknown error
+}
+
+err_t setServiceName(const int ble_service_id, const String name) {
+  //if the service_id is valid for a ble_generic, set the UUID and allow it to be enabled
+  BLE_GenericService *ble_generic = nullptr;
+  if (ble_service_id == 7) {
+    ble_generic = &ble_generic1;
+  } else if (ble_service_id == 8) {
+    ble_generic = &ble_generic2;
+  } else if (ble_service_id == 9) {
+    ble_generic = &ble_generic3;
+  } else {
+    return (err_t)2;  //error didn't recognize the ble_service_id
+  }
+
+  //assuming that we have a valid pointer, go ahead and set the service name
+  if (ble_generic != nullptr) {
+    ble_generic->setServiceName(name);
+    return (err_t)0; //no error
+  }
+  return (err_t)99;  //we should not get here.  unknown error
+}
+
+err_t addCharacteristic(const int ble_service_id, const uint8_t *uuid_chars, const int len_uuid_chars) {
+  //copy the UUID (in reverse order, as required by BLE_GenericService)
+  UUID_t this_uuid;
+  err_t err_code = copyUUIDinReverse(uuid_chars, len_uuid_chars, &this_uuid);
+  if (err_code !=0) return (err_t)1;  //error, wrong size
+
+  //if the service_id is valid for a ble_generic, set the UUID and allow it to be enabled
+  BLE_GenericService *ble_generic = nullptr;
+  if (ble_service_id == 7) {
+    ble_generic = &ble_generic1;
+  } else if (ble_service_id == 8) {
+    ble_generic = &ble_generic2;
+  } else if (ble_service_id == 9) {
+    ble_generic = &ble_generic3;
+  } else {
+    return (err_t)2;  //error didn't recognize the ble_service_id
+  }
+
+  //assuming that we have a valid pointer, go ahead and set the UUID and enable the preset
+  if (ble_generic != nullptr) {
+    err_code = ble_generic->addCharacteristic(this_uuid);
+    if (err_code != 0) return (err_t)3; //could not create characteristic
+    return (err_t)0; //no error
+  }
+
+  return (err_t)99;  //we should not get here.  unknown error
+}
+
+err_t setCharacteristicName(const int ble_service_id, const int ble_char_id, const String &name) {
+  //if the service_id is valid for a ble_generic, set the UUID and allow it to be enabled
+  BLE_GenericService *ble_generic = nullptr;
+  if (ble_service_id == 7) {
+    ble_generic = &ble_generic1;
+  } else if (ble_service_id == 8) {
+    ble_generic = &ble_generic2;
+  } else if (ble_service_id == 9) {
+    ble_generic = &ble_generic3;
+  } else {
+    return (err_t)2;  //error didn't recognize the ble_service_id
+  }
+
+  //assuming that we have a valid pointer, go ahead and set the service name
+  if (ble_generic != nullptr) {
+    err_t err_code = ble_generic->setCharacteristicName(ble_char_id, name);
+    if (err_code != 0) return (err_t)3; //could not set its name (char_id doesn't exist?)
+    return (err_t)0; //no error
+  }
+  return (err_t)99;  //we should not get here.  unknown error
+}
+
+err_t setCharacteristicProps(const int ble_service_id, const int ble_char_id, const uint8_t char_props) {
+  //if the service_id is valid for a ble_generic, set the UUID and allow it to be enabled
+  BLE_GenericService *ble_generic = nullptr;
+  if (ble_service_id == 7) {
+    ble_generic = &ble_generic1;
+  } else if (ble_service_id == 8) {
+    ble_generic = &ble_generic2;
+  } else if (ble_service_id == 9) {
+    ble_generic = &ble_generic3;
+  } else {
+    return (err_t)2;  //error didn't recognize the ble_service_id
+  }
+
+  //assuming that we have a valid pointer, go ahead and set the service name
+  if (ble_generic != nullptr) {
+    err_t err_code = ble_generic->setCharacteristicProps(ble_char_id, char_props);
+    if (err_code != 0) return (err_t)3; //could not set its name (char_id doesn't exist?)
+    return (err_t)0; //no error
+  }
+  return (err_t)99;  //we should not get here.  unknown error 
+}
+
+err_t setCharacteristicNBytes(const int ble_service_id, const int ble_char_id, const int n_bytes) {
+  //if the service_id is valid for a ble_generic, set the UUID and allow it to be enabled
+  BLE_GenericService *ble_generic = nullptr;
+  if (ble_service_id == 7) {
+    ble_generic = &ble_generic1;
+  } else if (ble_service_id == 8) {
+    ble_generic = &ble_generic2;
+  } else if (ble_service_id == 9) {
+    ble_generic = &ble_generic3;
+  } else {
+    return (err_t)2;  //error didn't recognize the ble_service_id
+  }
+
+  //assuming that we have a valid pointer, go ahead and set the service name
+  if (ble_generic != nullptr) {
+    err_t err_code = ble_generic->setCharacteristicNBytes(ble_char_id, n_bytes);
+    if (err_code != 0) return (err_t)3; //could not set its name (char_id doesn't exist?)
+    return (err_t)0; //no error
+  }
+  return (err_t)99;  //we should not get here.  unknown error 
+}
+
 

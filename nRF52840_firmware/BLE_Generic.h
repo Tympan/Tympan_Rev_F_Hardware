@@ -35,15 +35,14 @@ typedef struct {
 
 class BLE_GenericService : public virtual BLE_Service_Preset {
   public:
-    BLE_GenericService(UUID_t new_uuid) : BLE_Service_Preset() {
-      //copy the uuid locally
-      for (auto i=0; i< new_uuid.len; ++i) ServiceUUID.uuid[i]=new_uuid.uuid[i];
-      //create the new service
-      this_service = new BLEService(ServiceUUID.uuid);
-    }
+    BLE_GenericService(void) : BLE_Service_Preset() { is_service_uuid_specified = false; }
     ~BLE_GenericService(void) override {
       //remove this instance from the static table holding pointers to all instances of BLE_GenericService
-      for (auto i=0; i<self_ptr_table.size(); ++i) { if (self_ptr_table[i] == this) self_ptr_table[i] = nullptr;  }
+      for (auto i=0; i<self_ptr_table.size(); ++i) { 
+        if (self_ptr_table[i] == this) {
+          self_ptr_table[i] = nullptr;
+        }
+      }
 
       //delete all characteristics
       for (auto i=characteristic_ptr_table.size()-1; i >= 0; --i) delete characteristic_ptr_table[i];
@@ -55,24 +54,50 @@ class BLE_GenericService : public virtual BLE_Service_Preset {
       delete this_service;
     }
 
-    void setServiceName(const String &new_name) {
+    virtual err_t setServiceUUID(const UUID_t &new_uuid) {
+      //copy the uuid locally
+      for (auto i=0; i< new_uuid.len; ++i) ServiceUUID.uuid[i]=new_uuid.uuid[i];
+      //create the new service
+      this_service = new BLEService(ServiceUUID.uuid);
+      //
+      is_service_uuid_specified = true;
+      return (err_t)0;
+    }
+
+    virtual void setServiceName(const String &new_name) {
       name.remove(0,name.length());  //clear out any existing name
       name += new_name;              //add the new name
     }
 
-    err_t addCharacteristic(const BLE_CHAR_t &given_char) {
+    virtual err_t addCharacteristic(const UUID_t &given_uuid) {
       if (characteristic_info_table.size() >= max_char_ids) return (err_t)1;  //can't create an excessive number of characteristics
       //instantiate
       BLE_CHAR_t *new_char_info = new BLE_CHAR_t;
-      //copy data
-      new_char_info->uuid = given_char.uuid;
-      new_char_info->n_bytes = given_char.n_bytes;
-      new_char_info->props = given_char.props;
-      new_char_info->name = given_char.name;
+      //copy the uuid
+      new_char_info->uuid = given_uuid;
       //push onto vector until it's needed
       characteristic_info_table.push_back(new_char_info); //To-do: get the return type and generate an error, if needed
       return (err_t)0;
     }
+
+    virtual err_t setCharacteristicName(const int char_id, const String &new_name){
+      if (char_id >= characteristic_info_table.size()) return (err_t)1;  //given char_id doesn't exist
+      characteristic_info_table[char_id]->name = new_name;
+      return (err_t)0;  //no error
+    }
+
+    virtual err_t setCharacteristicProps(const int char_id, uint8_t new_props){
+      if (char_id >= characteristic_info_table.size()) return (err_t)1;  //given char_id doesn't exist
+      characteristic_info_table[char_id]->props = new_props;
+      return (err_t)0;  //no error
+    }
+
+    virtual err_t setCharacteristicNBytes(const int char_id, uint8_t new_nbytes) {
+      if (char_id >= characteristic_info_table.size()) return (err_t)1;  //given char_id doesn't exist
+      characteristic_info_table[char_id]->n_bytes = new_nbytes;
+      return (err_t)0;  //no error     
+    }
+    
 
     err_t begin(int id) override;
 
@@ -121,14 +146,19 @@ class BLE_GenericService : public virtual BLE_Service_Preset {
     std::vector<BLECharacteristic *>characteristic_ptr_table; //here is where we'll store all the BLE characteristics (Adafruit nRF52 library) that we create
     BLEService *this_service; //here is the Adafruit nRF52 functionality that handles all the actual BLE interactions
 
-    static std::vector<BLE_GenericService *> self_ptr_table; //all instances of this class....for use in the write callback
+    inline static std::vector<BLE_GenericService *> self_ptr_table; //all instances of this class....for use in the write callback.  The "inline" is so that we don't need to also initialize it somewhere else.
 
   protected:
+    bool is_service_uuid_specified = false;
 
 };
 
 
 err_t BLE_GenericService::begin(int id) {  //err_t is inhereted from bluefruit.h?
+  //if we have not been given a service uuid, we cannot start
+  if (!is_service_uuid_specified) return (err_t)1;
+
+  //continue with the begin() steps
   BLE_Service_Preset::begin(id); //sets service_id
 
   // Note: You must call .begin() on the BLEService before calling .begin() on
@@ -139,14 +169,14 @@ err_t BLE_GenericService::begin(int id) {  //err_t is inhereted from bluefruit.h
 
   // Configure each characteristic that has been defined
   for (auto i=0; i<characteristic_info_table.size(); ++i) {
-    if ((int)characteristic_ptr_table.size() >= max_char_ids) return (err_t)1;  //attempting to create too many!
+    if ((int)characteristic_ptr_table.size() >= max_char_ids) return (err_t)2;  //attempting to create too many!
 
     //get the pre-defined info about this new characteristic
     BLE_CHAR_t *char_info = characteristic_info_table[i];
 
     //instantiate the new characteristic
     BLECharacteristic *new_char = new BLECharacteristic(char_info->uuid.uuid);
-    if (new_char == nullptr) return (err_t)2;  //failed to create characteristics
+    if (new_char == nullptr) return (err_t)3;  //failed to create characteristics
 
     //set all of the properties of he new characteristic
     new_char->setProperties(char_info->props);

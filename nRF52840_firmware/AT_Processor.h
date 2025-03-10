@@ -8,6 +8,19 @@
 //
 // /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+//"Notify" (and "Write") is for byte array payloads to be sent via BLE characteristic (not a UART-like service).
+//The data bytes can have a carriage return character in the data payload.  It must also have a carriage return
+// at the end of the serial buffer, though, marking the end of the overall message
+//
+//Format: NOTIFY X Y ZZ dddd
+//Format: WRITE X Y ZZ dddd
+//
+//  X is one character (0-9) that is the id of the BLE service to employ for the transmission
+//  Y is one character (0-9) that is the id of the BLE characteristic to employ for the transmission
+//  Z is one character (1-9)) that is the number of bytes of the data
+//  dddd are the bytes (1-9 bytes long) to be transmitted
+
+
 #ifndef AT_PROCESSOR_H
 #define AT_PROCESSOR_H
 
@@ -28,6 +41,12 @@ extern const char versionString[];
 extern int sendBleDataByServiceAndChar(int command, int service_id, int char_id, int nbytes, const uint8_t *databytes);
 extern int setAdvertisingServiceToPresetById(int);
 extern bool enablePresetServiceById(int preset_id, bool enable);
+extern err_t setServiceUUID(const int ble_service_id, const uint8_t *uuid_chars, const int len_uuid_chars);
+extern err_t setServiceName(const int ble_service_id, const String name);
+extern err_t addCharacteristic(const int ble_service_id, const uint8_t *uuid_chars, const int len_uuid_chars);
+extern err_t setCharacteristicName(const int ble_service_id, const int ble_char_id, const String &name);
+extern err_t setCharacteristicProps(const int ble_service_id, const int ble_char_id, const uint8_t char_props);
+extern err_t setCharacteristicNBytes(const int ble_service_id, const int ble_char_id, const int n_bytes);
 
 //running on the nRF52, this interprets commands coming from the hardware serial and send replies out to the BLE
 #define AT_PROCESSOR_N_BUFFER 512
@@ -71,7 +90,10 @@ class AT_Processor {
     int serial_write_ind = 0;
 
     //methods corresponding to the detailed actions that can be taken
-    bool compareStringInSerialBuff(const char* test_str, int n);  
+    bool compareStringInSerialBuff(const char* test_str, int n);
+    bool skipSpaceIfNextInBuffer(void);
+
+    int processSvcSetupMessageInSerialBuff(void);  
     int processBeginMessageInSerialBuff(void);
     int processSetMessageInSerialBuff(void);  
     int processGetMessageInSerialBuff(void);
@@ -88,6 +110,11 @@ class AT_Processor {
     void sendSerialOkMessage(const char* reply_str);
     void sendSerialFailMessage(const char* reply_str);
 
+    int getUUIDStringFromBuffer(const int len_uuid_chars, uint8_t *uuid_chars); //output is via uuid_chars
+    int getStringFromBuffer(String &out_string); //output is via out_string
+    int getValueFromBuffer(int *out_value);  //output is via out_value
+    int getCharPropsFromBuffer(const int n_chars_comprising_char_props, uint8_t *char_props); //output is via char_props
+
     const int VERB_NOT_KNOWN = 1;
     const int PARAMETER_NOT_KNOWN = 2;
     const int FORMAT_PROBLEM = 3;
@@ -96,6 +123,19 @@ class AT_Processor {
     const int DATA_WRONG_SIZE = 6;
     const int DATA_WRONG_FORMAT = 7;
     const int NO_BLE_CONNECTION = 99;
+
+    static int interpret0toF(const char val) {
+      if ((val >= '0') && (val <= '9')) return ((int)val - (int)'0');
+      if ((val >= 'A') && (val <= 'F')) return ((int)val - (int)'A' + 10);
+      if ((val >= 'a') && (val <= 'f')) return ((int)val - (int)'a' + 10);
+      return -999;
+    }
+    static bool isNumOrAtoF(const char val) {
+      if ((val >= '0') && (val <= '9')) return true;
+      if ((val >= 'A') && (val <= 'F')) return true;
+      if ((val >= 'a') && (val <= 'f')) return true;
+      return false;  
+    }
 };
 
 void AT_Processor::addToSerialBuffer(char c) {
@@ -144,17 +184,7 @@ int AT_Processor::processSerialCharacter(char c) {
 }
 
 
-//"Noitfy" (and "Write") is for byte array payloads to be sent via BLE characteristic (not a UART-like service).
-//The data bytes can have a carriage return character in the data payload.  It must also have a carriage return
-// at the end of the serial buffer, though, marking the end of the overall message
-//
-//Format: NOTIFY X Y ZZ dddd
-//Format: WRITE X Y ZZ dddd
-//
-//  X is one character (0-9) that is the id of the BLE service to employ for the transmission
-//  Y is one character (0-9) that is the id of the BLE characteristic to employ for the transmission
-//  Z is one character (1-9)) that is the number of bytes of the data
-//  dddd are the bytes (1-9 bytes long) to be transmitted
+
 int AT_Processor::processSerialCharacterAsBleMessage(char c) {
   int test_n_char;
 
@@ -203,7 +233,8 @@ int AT_Processor::processSerialCharacterAsBleMessage(char c) {
       addToSerialBuffer(c); //add the character to the buffer
       if (c == ' ') {
         //interpret the first character as the id
-        ble_service_id = (int)(getFirstCharInBuffer() - '0');
+        //ble_service_id = (int)(getFirstCharInBuffer() - '0');
+        ble_service_id = interpret0toF(getFirstCharInBuffer());
         rx_mode = RXMODE_LOOK_FOR_CHARACTERISTIC; ble_char_id = 0;
         serial_read_ind = serial_write_ind;  //clear any remaining message
       }
@@ -216,7 +247,8 @@ int AT_Processor::processSerialCharacterAsBleMessage(char c) {
       addToSerialBuffer(c); //add the character to the buffer
       if (c == ' ') {
         //interpret the first character as the id
-        ble_char_id = (int)(getFirstCharInBuffer() - '0');
+        //ble_char_id = (int)(getFirstCharInBuffer() - '0');
+        ble_char_id = interpret0toF(getFirstCharInBuffer());
         rx_mode = RXMODE_LOOK_FOR_NBYTES; ble_nbytes = 0;
         serial_read_ind = serial_write_ind;  //clear any remaining message
       }
@@ -229,7 +261,8 @@ int AT_Processor::processSerialCharacterAsBleMessage(char c) {
       addToSerialBuffer(c); //add the character to the buffer
       if (c == ' ') {
         //interpret the first character as the id
-        ble_nbytes = (int)(getFirstCharInBuffer() - '0');
+        //ble_nbytes = (int)(getFirstCharInBuffer() - '0');
+        ble_nbytes = interpret0toF(getFirstCharInBuffer());
         if ((ble_nbytes > 0) && (ble_nbytes < 128)) {
           //valid!
           rx_mode = RXMODE_LOOK_FOR_DATABYTES;
@@ -346,6 +379,15 @@ int AT_Processor::processSerialMessage(void) {
     }
   } 
 
+  //test for the verb "SVCSETUP"
+  test_n_char = 8; //how long is "SVCSETUP"
+  if (len >= test_n_char) {
+    if (compareStringInSerialBuff("SVCSETUP",test_n_char)) {  //does the current message start this way
+      serial_read_ind = (serial_read_ind + test_n_char) % AT_PROCESSOR_N_BUFFER; //increment the reader index for the serial buffer
+      if (DEBUG_VIA_USB) { Serial.print("AT_Processor: recvd: SVCSETUP "); debugPrintMsgFromSerialBuff(); Serial.println(); } 
+      ret_val = processSvcSetupMessageInSerialBuff();
+    }
+  } 
 
   // serach for another command
   //   anything?
@@ -363,6 +405,129 @@ int AT_Processor::processSerialMessage(void) {
   if (ret_val == VERB_NOT_KNOWN) sendSerialFailMessage("VERB not known");
 
   serial_read_ind = serial_write_ind;  //remove any remaining message
+  return ret_val;
+}
+
+//returns true if the next character was a space
+bool AT_Processor::skipSpaceIfNextInBuffer(void) {
+  if (serial_read_ind != serial_write_ind) {
+    if (serial_buff[serial_read_ind] == ' ') {
+      serial_read_ind = (serial_read_ind+1) % AT_PROCESSOR_N_BUFFER; //increment the reader index for the serial buffer and wrap as needed
+      return true;
+    }
+  }
+  return false;
+}
+
+int AT_Processor::processSvcSetupMessageInSerialBuff(void) {
+  int test_n_char;
+  char current_char = 'a';
+  int ret_val = FORMAT_PROBLEM;
+
+  //skip any leading space
+  skipSpaceIfNextInBuffer();
+
+  //interpret the current character as service id
+  if (serial_read_ind == serial_write_ind) { sendSerialFailMessage("SVCSETUP format problem");  serial_read_ind = serial_write_ind;  return FORMAT_PROBLEM; }  //remove the message and return
+  ble_service_id = interpret0toF(getFirstCharInBuffer()); //auto-increments serial_read_ind
+  if (ble_service_id < 0) { sendSerialFailMessage("SVCSETUP could not interpret service_id");  return FORMAT_PROBLEM; } //remove the message
+
+  //should be a space character next
+  if (skipSpaceIfNextInBuffer() == false) { sendSerialFailMessage("SVCSETUP format problem");  serial_read_ind = serial_write_ind;  return FORMAT_PROBLEM; }  //remove the message and return
+   
+  //look for the characeristic id
+  if (serial_read_ind == serial_write_ind) { sendSerialFailMessage("SVCSETUP format problem");  serial_read_ind = serial_write_ind;  return FORMAT_PROBLEM; }  //remove the message and return
+  ble_char_id = interpret0toF(getFirstCharInBuffer()); //auto-increments serial_read_ind
+  if (ble_char_id < 0) { sendSerialFailMessage("SVCSETUP could not interpret characteristic id");  serial_read_ind = serial_write_ind;  return FORMAT_PROBLEM; } //remove the message
+
+  //should be a space character next
+  if (skipSpaceIfNextInBuffer() == false) { sendSerialFailMessage("SVCSETUP format problem");  serial_read_ind = serial_write_ind;  return FORMAT_PROBLEM; }  //remove the message and return
+  if (serial_read_ind == serial_write_ind) { sendSerialFailMessage("SVCSETUP format problem");  serial_read_ind = serial_write_ind;  return FORMAT_PROBLEM; }  //remove the message and return
+  
+  //look for parameter kewords: SERVICEUUID, SERVICENAME, ADDCHAR, CHARPROPS, CHARNAME, CHARNBYTES
+  uint8_t uuid_chars[16]; const int len_uuid_chars = 16; //we might need this
+
+  //look for parameter value of SERVICEUUID
+  test_n_char = 11+1; //length of "SERVICEUUID="
+  if (compareStringInSerialBuff("SERVICEUUID=",test_n_char)) {
+    serial_read_ind = (serial_read_ind + test_n_char) % AT_PROCESSOR_N_BUFFER; //increment the reader index for the serial buffer
+    //get the value
+    int err_code = getUUIDStringFromBuffer(len_uuid_chars,uuid_chars);
+    if (err_code != 0) { sendSerialFailMessage("SVCSETUP failed to interpret Service UUID");  serial_read_ind = serial_write_ind;  return FORMAT_PROBLEM; }  //remove the message and return}
+    err_code = setServiceUUID(ble_service_id, uuid_chars, len_uuid_chars);
+    if (err_code != 0) { sendSerialFailMessage("SVCSETUP failed to set Service UUID");  serial_read_ind = serial_write_ind;  return OPERATION_FAILED; }  //remove the message and return}
+    sendSerialOkMessage(); return 0;
+  }
+
+  //look for parameter value of SERVICENAME
+  test_n_char = 11+1; //length of "SERVICENAME="
+  if (compareStringInSerialBuff("SERVICENAME=",test_n_char)) {
+    serial_read_ind = (serial_read_ind + test_n_char) % AT_PROCESSOR_N_BUFFER; //increment the reader index for the serial buffer
+    //get the value
+    String given_name;
+    int err_code = getStringFromBuffer(given_name);
+    if (err_code != 0) { sendSerialFailMessage("SVCSETUP failed to interpret Service Name");  serial_read_ind = serial_write_ind;  return FORMAT_PROBLEM; }  //remove the message and return}
+    err_code = setServiceName(ble_service_id, given_name);
+    if (err_code != 0) { sendSerialFailMessage("SVCSETUP failed to set Service Name");  serial_read_ind = serial_write_ind;  return OPERATION_FAILED; }  //remove the message and return}
+    sendSerialOkMessage(); return 0;
+  }
+
+  //look for parameter value of ADDCHAR
+  test_n_char = 7+1; //length of "ADDCHAR="
+  if (compareStringInSerialBuff("ADDCHAR=",test_n_char)) {
+    serial_read_ind = (serial_read_ind + test_n_char) % AT_PROCESSOR_N_BUFFER; //increment the reader index for the serial buffer
+    //get the value
+    int err_code = getUUIDStringFromBuffer(len_uuid_chars, uuid_chars);
+    if (err_code != 0) { sendSerialFailMessage("SVCSETUP failed to interpret Characteristic UUID");  serial_read_ind = serial_write_ind;  return FORMAT_PROBLEM; }  //remove the message and return}
+    err_code = addCharacteristic(ble_service_id, uuid_chars, len_uuid_chars);
+    if (err_code != 0) { sendSerialFailMessage("SVCSETUP failed to add Characteristic via UUID");  serial_read_ind = serial_write_ind;  return OPERATION_FAILED; }  //remove the message and return}
+    sendSerialOkMessage(); return 0;
+  }
+
+  //look for parameter value of CHARNAME
+  test_n_char = 8+1; //length of "CHARNAME="
+  if (compareStringInSerialBuff("CHARNAME=",test_n_char)) {
+    serial_read_ind = (serial_read_ind + test_n_char) % AT_PROCESSOR_N_BUFFER; //increment the reader index for the serial buffer
+    //get the value
+    String given_name;
+    int err_code = getStringFromBuffer(given_name);
+    if (err_code != 0) { sendSerialFailMessage("SVCSETUP failed to interpret Characterisic Name");  serial_read_ind = serial_write_ind;  return FORMAT_PROBLEM; }  //remove the message and return}
+    err_code = setCharacteristicName(ble_service_id, ble_char_id, given_name);
+    if (err_code != 0) { sendSerialFailMessage("SVCSETUP failed to set Characterisic Name");  serial_read_ind = serial_write_ind;  return OPERATION_FAILED; }  //remove the message and return}
+    sendSerialOkMessage(); return 0;
+  }
+
+  //look for parameter value of CHARPROPS
+  test_n_char = 9+1; //length of "CHARPROPS="
+  if (compareStringInSerialBuff("CHARPROPS=",test_n_char)) {
+    serial_read_ind = (serial_read_ind + test_n_char) % AT_PROCESSOR_N_BUFFER; //increment the reader index for the serial buffer
+    //get the value
+    uint8_t char_props; const int n_chars_comprising_char_props = 8;
+    int err_code = getCharPropsFromBuffer(n_chars_comprising_char_props, &char_props);
+    if (err_code != 0) { sendSerialFailMessage("SVCSETUP failed to interpret Char Props");  serial_read_ind = serial_write_ind;  return FORMAT_PROBLEM; }  //remove the message and return}
+    err_code = setCharacteristicProps(ble_service_id, ble_char_id, char_props);
+    if (err_code != 0) { sendSerialFailMessage("SVCSETUP failed to set Char Props");  serial_read_ind = serial_write_ind;  return OPERATION_FAILED; }  //remove the message and return}
+    sendSerialOkMessage(); return 0;
+  }
+
+  //look for parameter value of CHARNBYTES
+  test_n_char = 10+1; //length of "CHARNBYTES="
+  if (compareStringInSerialBuff("CHARNBYTES=",test_n_char)) {
+    serial_read_ind = (serial_read_ind + test_n_char) % AT_PROCESSOR_N_BUFFER; //increment the reader index for the serial buffer
+    //get the value
+    int nbytes;
+    int err_code = getValueFromBuffer(&nbytes); 
+    if (err_code != 0) { sendSerialFailMessage("SVCSETUP failed to interpret char_nbytes");  serial_read_ind = serial_write_ind;  return FORMAT_PROBLEM; }  //remove the message and return}
+    if ((nbytes < 1) || (nbytes > 255)) { sendSerialFailMessage("SVCSETUP nbytes must be between 1 and 255");  serial_read_ind = serial_write_ind;  return FORMAT_PROBLEM; }  //remove the message and return}
+    err_code = setCharacteristicNBytes(ble_service_id, ble_char_id, (uint8_t)nbytes);
+    if (err_code != 0) { sendSerialFailMessage("SVCSETUP failed to set char_nbytes");  serial_read_ind = serial_write_ind;  return OPERATION_FAILED; }  //remove the message and return}
+    sendSerialOkMessage(); return 0;
+  }
+
+  //send a FAIL message if none has been sent yet
+  ret_val = FORMAT_PROBLEM;
+  sendSerialFailMessage("SVCSETUP format problem");
+  serial_read_ind = serial_write_ind;  //remove the message
   return ret_val;
 }
 
@@ -497,7 +662,8 @@ int AT_Processor::processSetMessageInSerialBuff(void) {
     //get the service number
     char next_char = getFirstCharInBuffer();
     if (next_char >= '0') {
-      int service_id = (int)(next_char-'0');
+      //int service_id = (int)(next_char-'0');
+      int service_id = interpret0toF(next_char);
       //look for the equal sign
       next_char = getFirstCharInBuffer();
       if (next_char == '=') {
@@ -726,7 +892,8 @@ int AT_Processor::setBeginFromSerialBuff(void) {
     ret_val = 0;
   } else {
     //any other character, assume we want to start
-    int start_code = (int) (new_val - '0');  //cheating, assumes only 1 character
+    //int start_code = (int) (new_val - '0');  //cheating, assumes only 1 character
+    int start_code = interpret0toF(new_val); //cheating, assumes only 1 character
     beginAllBleServices(start_code);
     ret_val = 0;
   }
@@ -756,7 +923,8 @@ int AT_Processor::setMacAddressFromSerialBuff(void) {
       int targ_ind = 0;
       while (!done) {
         char c = serial_buff[serial_read_ind++];  //get character and increment index to the next character
-        if ((c >= '0') && (c <= '9') || ((c >= 'A') && (c <= 'F')) || ((c >= 'a') && (c <= 'f'))) {
+        //if ((c >= '0') && (c <= '9') || ((c >= 'A') && (c <= 'F')) || ((c >= 'a') && (c <= 'f'))) {
+        if (isNumOrAtoF(c)) {
           //good
           new_mac[targ_ind++] = c;
         } else {
@@ -838,7 +1006,8 @@ int AT_Processor::setAdvServiceIdFromSerialBuff(void) {
   if ((lengthSerialMessage() > 0) && (serial_buff[serial_read_ind]==' ')) serial_read_ind++; //remove leading whitespace
   if (lengthSerialMessage() >= 1) {
     //only use the first character as the number...this is a kludge!
-    int targ_service_id = (int)(serial_buff[serial_read_ind]-'0');
+    //int targ_service_id = (int)(serial_buff[serial_read_ind]-'0');
+    int targ_service_id = interpret0toF(serial_buff[serial_read_ind]);
     int returned_service_id = setAdvertisingServiceToPresetById(targ_service_id);
     if (returned_service_id==targ_service_id) ret_val = 0;  //it worked!
   }
@@ -913,6 +1082,73 @@ void AT_Processor::debugPrintMsgFromSerialBuff(int start_ind, int end_ind) {
   }  
 }
 
+int AT_Processor::getUUIDStringFromBuffer(const int len_uuid_chars, uint8_t *uuid_chars) {
+  if (lengthSerialMessage() < len_uuid_chars) return 1; //error.  Serial message too small
+  for (int i=0; i<len_uuid_chars; ++i)  uuid_chars[i] = getFirstCharInBuffer(); //auto-increments serial_read_ind (including wrapping)
+  return 0; //no error
+}
 
+int AT_Processor::getStringFromBuffer(String &out_string) {
+  out_string.remove(0,out_string.length());  //clear the String
+  int msg_len = lengthSerialMessage();
+  if (msg_len == 0) return 0; //nothing to copy
+  bool is_done = false;
+  for (int Ichar = 0; Ichar < msg_len; ++Ichar) {
+    char c = getFirstCharInBuffer();
+    if (!is_done) {
+      if (c == '\r') {
+        is_done = true;
+      } else {
+        out_string += c;
+      }
+    }
+  }
+  return 0; //no error
+}
+
+int AT_Processor::getValueFromBuffer(int *out_value) {
+  if (lengthSerialMessage() == 0) return 1;  //return error.  no data to interpret
+  int tmp_value = 0;
+  bool done = false;
+  while ( (!done) && (lengthSerialMessage() > 0)) {
+    char c = getFirstCharInBuffer();  //auto-increments serial_read_ind
+    if ((c >= '0') && (c <= '9')) {
+      //the character is a valid number, so add it to our running total
+      tmp_value  = 10*tmp_value + (c - '0');
+    } else if (c == '\r') {
+      //perhaps this shouldn't happen?  if it does happen, let's assume our running total is valid?
+      done = true;
+    } else {
+      //the character is definitely invalid.
+      return 2;  //return error
+    }
+  }
+
+  //valid should be valid, so copy to output and return
+  *out_value = tmp_value;
+  return 0;  //no error
+}
+
+//assume char props is being sent as binary with all eight characters present ("00110110")
+int AT_Processor::getCharPropsFromBuffer(const int n_chars_comprising_char_props, uint8_t *char_props) {
+  if (lengthSerialMessage() < n_chars_comprising_char_props) return 1; //error.  Serial message too small
+  uint8_t tmp_val = 0;
+  for (int i=0; i<n_chars_comprising_char_props; ++i) {
+    tmp_val = tmp_val << 1;  //but shift
+    char c = getFirstCharInBuffer(); //auto-increments serial_read_ind
+    if (c == '1') {
+      //Valid character.  add 1.
+      tmp_val += 1;
+    } else if (c == '0') {
+      //Valid character.  add zero (ie, do nothing)
+    } else {
+      //Invalid character. Unexpected character!  return early with error!
+      return 1;  //error, unexpected character (not a 1 nor a zero)
+    }
+  }
+  //copy temp value to the return value and return
+  *char_props = tmp_val;
+  return 0; //no error
+}
 
 #endif
