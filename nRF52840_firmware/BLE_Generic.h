@@ -74,43 +74,7 @@ class BLE_GenericService : public virtual BLE_Service_Preset {
       return (err_t)0;
     }
 
-    err_t begin(int id) override {  //err_t is inhereted from bluefruit.h?
-      BLE_Service_Preset::begin(id); //sets service_id
-
-      // Note: You must call .begin() on the BLEService before calling .begin() on
-      // any characteristic(s) within that service definition.. Calling .begin() on
-      // a BLECharacteristic will cause it to be added to the last BLEService that
-      // was 'begin()'ed!
-      this_service->begin();
-
-      // Configure each characteristic that has been defined
-      for (auto i=0; i<characteristic_info_table.size(); ++i) {
-        if ((int)characteristic_ptr_table.size() >= max_char_ids) return (err_t)1;  //attempting to create too many!
-
-        //get the pre-defined info about this new characteristic
-        BLE_CHAR_t *char_info = characteristic_info_table[i];
-
-        //instantiate the new characteristic
-        BLECharacteristic *new_char = new BLECharacteristic(char_info->uuid.uuid);
-        if (new_char == nullptr) return (err_t)2;  //failed to create characteristics
-
-        //set all of the properties of he new characteristic
-        new_char->setProperties(char_info->props);
-        new_char->setPermission(SECMODE_OPEN, SECMODE_OPEN);
-        new_char->setFixedLen(char_info->n_bytes);
-        new_char->setUserDescriptor(char_info->name.c_str());
-        new_char->begin();
-        if (char_info->props & CHR_PROPS_WRITE) { //can this charcterisitc receive data in?
-          new_char->setWriteCallback(BLE_GenericService::write_callback); //must be a static function
-        }
-
-        //save this characteristic in our internal tracking table
-        characteristic_ptr_table.push_back(new_char);
-        nchars = (int)i;
-        char_ids[(int)i]=(int)i;
-      }
-      return (err_t)0;
-    }
+    err_t begin(int id) override;
 
     BLEService* getServiceToAdvertise(void) override { return this_service;  }
 
@@ -163,5 +127,87 @@ class BLE_GenericService : public virtual BLE_Service_Preset {
 
 };
 
+
+err_t BLE_GenericService::begin(int id) {  //err_t is inhereted from bluefruit.h?
+  BLE_Service_Preset::begin(id); //sets service_id
+
+  // Note: You must call .begin() on the BLEService before calling .begin() on
+  // any characteristic(s) within that service definition.. Calling .begin() on
+  // a BLECharacteristic will cause it to be added to the last BLEService that
+  // was 'begin()'ed!
+  this_service->begin();
+
+  // Configure each characteristic that has been defined
+  for (auto i=0; i<characteristic_info_table.size(); ++i) {
+    if ((int)characteristic_ptr_table.size() >= max_char_ids) return (err_t)1;  //attempting to create too many!
+
+    //get the pre-defined info about this new characteristic
+    BLE_CHAR_t *char_info = characteristic_info_table[i];
+
+    //instantiate the new characteristic
+    BLECharacteristic *new_char = new BLECharacteristic(char_info->uuid.uuid);
+    if (new_char == nullptr) return (err_t)2;  //failed to create characteristics
+
+    //set all of the properties of he new characteristic
+    new_char->setProperties(char_info->props);
+    new_char->setPermission(SECMODE_OPEN, SECMODE_OPEN);
+    new_char->setFixedLen(char_info->n_bytes);
+    new_char->setUserDescriptor(char_info->name.c_str());
+    new_char->begin();
+    if (char_info->props & CHR_PROPS_WRITE) { //can this charcterisitc receive data in?
+      new_char->setWriteCallback(BLE_GenericService::write_callback); //must be a static function
+    }
+
+    //save this characteristic in our internal tracking table
+    characteristic_ptr_table.push_back(new_char);
+    nchars = (int)i;
+    char_ids[(int)i]=(int)i;
+  }
+  return (err_t)0;
+}
+
+//this callback happens when data is received rom the remote device (mobile phone) here at the nRF52840 module
+void BLE_GenericService::write_callback(uint16_t conn_hdl, BLECharacteristic* chr, uint8_t* data, uint16_t len)
+{
+  int service_id = -1, char_id = -1;
+
+  //find matching service UUID in the static table
+  BLEService* svc= &chr->parentService();
+  for (size_t I = 0; I < self_ptr_table.size(); ++I) {  //self_ptr_table is a static member of this class, so can be accessed by this static method
+    if (((self_ptr_table[I])->this_service)->uuid == svc->uuid) {
+      //found the service pointer
+
+      //Now, find matching chracteristic UUID in its table of characteristic ids
+      BLE_GenericService* foo_ble_svc_ptr = self_ptr_table[I];
+      service_id = foo_ble_svc_ptr->service_id;
+      for (size_t J=0; J < foo_ble_svc_ptr->characteristic_ptr_table.size(); ++J) {
+        if ((foo_ble_svc_ptr->characteristic_ptr_table[J])->uuid == chr->uuid) {
+          char_id = J;
+        }
+      }
+      break;
+    }
+  }
+
+  #if DEBUG_VIA_USB
+    Serial.print("BLE_GenericService: write_callback:");
+    Serial.print(" Recevied value = " + String(data[0]));
+    //Serial.print(", from: "); Serial.print(central_name);
+    if (service_id >= 0) { 
+      Serial.print(", from service_id: " + String(service_id));
+    } else {
+      Serial.print(", from service UUID: " ); Serial.print(svc->uuid.toString());
+    }
+    if (char_id >= 0) {
+      Serial.print(", from char_id: " + String(char_id));
+    } else {
+      Serial.print(", from char UUID: "); Serial.print(chr->uuid.toString());
+    }
+    Serial.println();
+  #endif
+
+  //push the data to the Tympan
+  if ((service_id >= 0) && (char_id >= 0)) writeBleDataToTympan(service_id, char_id, data, len); //part of BLEServicePreset
+}
 
 #endif
