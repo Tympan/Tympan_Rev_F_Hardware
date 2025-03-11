@@ -37,7 +37,7 @@
     MIT License, use at your own risk.
  */
 
-#define DEBUG_VIA_USB false
+#define DEBUG_VIA_USB true
 
 #define SERIAL_TO_TYMPAN Serial1                 //use this when physically wired to a Tympan. Assumes that the nRF is connected via Serial1 pins
 #define SERIAL_FROM_TYMPAN Serial1               //use this when physically wired to a Tympan. Assumes that the nRF is connected via Serial1 pins
@@ -71,7 +71,7 @@ LED_controller led_control;
 void issueATCommand(const String &str) {  issueATCommand(str.c_str(), str.length()); }
 void issueATCommand(const char *msg, unsigned int len_msg) {
   if (DEBUG_VIA_USB) {
-    Serial.print("nRF52840 Firmware: sending to be interpreted as AT command: ");
+    Serial.print(F("nRF52840 Firmware: sending to be interpreted as AT command: "));
     for (unsigned int i=0; i<len_msg; i++) Serial.print(msg[i]);
     Serial.println();
   }      
@@ -92,7 +92,7 @@ void setup(void) {
     while (Serial.available()) Serial.read();  //clear input buffer
   
     // send some info to the user on the USB Serial Port
-    Serial.println("*** nRF52840 Firmware: STARTING ***");
+    Serial.println(F("*** nRF52840 Firmware: STARTING ***"));
   }
 
   //start the nRF's UART serial port that is physically connected to a Tympan or other microcrontroller (if used)
@@ -129,9 +129,8 @@ void loop(void) {
   //Respond to incoming BLE messages
   if (bleBegun && bleConnected) { 
     //for the nRF firmware, service any messages coming in from BLE wireless link
-    BLEevent(&bleUart_Tympan, &SERIAL_TO_TYMPAN);  
-    BLEevent(&bleUart_Adafruit, &SERIAL_TO_TYMPAN);  
-    
+    if (bleUart_Tympan.has_begun) BLEevent(&bleUart_Tympan, &SERIAL_TO_TYMPAN);  
+    if (bleUart_Adafruit.has_begun) BLEevent(&bleUart_Adafruit, &SERIAL_TO_TYMPAN);  
   }
 
   //service the LEDs
@@ -240,10 +239,18 @@ void globalWriteBleDataToTympan(const int service_id, const int char_id, uint8_t
   msg[next_char++] = (uint8_t)' '; //space character;
   for (int i=0; i<len; i++) msg[next_char++] = data[i];
   msg[next_char++] = DATASTREAM_END_CHAR;
-  if ((next_char-1) > msg_len) Serial.println("globalWriteBleDataToTympan: *** ERROR ***: message length (" + String(next_char) + ") is larger than allocated (" + String(msg_len) + ")");
+  if ((next_char-1) > msg_len) {
+    if (DEBUG_VIA_USB) {
+      Serial.print(F("globalWriteBleDataToTympan: *** ERROR ***: message length ("));
+      Serial.print(next_char);
+      Serial.print(F(") is larger than allocated ("));
+      Serial.print(msg_len);
+      Serial.println(")");
+    }
+  }
 
   //send the data
-  Serial.print("globalWriteBleDataToTympan: Sending: "); Serial.write(msg,msg_len);Serial.println();
+  if (DEBUG_VIA_USB) { Serial.print(F("globalWriteBleDataToTympan: Sending: ")); Serial.write(msg,msg_len);Serial.println(); }
   SERIAL_TO_TYMPAN.write(msg,msg_len);
 }
 

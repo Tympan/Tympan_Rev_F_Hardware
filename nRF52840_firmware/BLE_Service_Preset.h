@@ -23,7 +23,7 @@ class BLE_Service_Preset {
     BLE_Service_Preset(void) {}
     virtual ~BLE_Service_Preset(void) {};
     virtual err_t begin(void) { return begin(0); }
-    virtual err_t begin(int id) { service_id = id; return (err_t)0; }
+    virtual err_t begin(int id) { service_id = id; has_begun = true; return (err_t)0; }
     virtual BLEService* getServiceToAdvertise(void) { return nullptr; }
     virtual size_t write( const int char_id, const uint8_t* data, size_t len) { return 0; }; //do nothing by default 
     virtual size_t notify(const int char_id, const uint8_t* data, size_t len) { return 0; }; //do nothing by default
@@ -32,6 +32,7 @@ class BLE_Service_Preset {
     static void writeBleDataToTympan(const int service_id, const int char_id, uint8_t data[], size_t len) { globalWriteBleDataToTympan( service_id, char_id, data, len); }
 
     int service_id = 0; //will get overwritten when actually setup
+    bool has_begun = false;
     
     String name = "(no name)";
 };

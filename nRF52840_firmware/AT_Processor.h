@@ -41,9 +41,9 @@ extern const char versionString[];
 extern int sendBleDataByServiceAndChar(int command, int service_id, int char_id, int nbytes, const uint8_t *databytes);
 extern int setAdvertisingServiceToPresetById(int);
 extern bool enablePresetServiceById(int preset_id, bool enable);
-extern err_t setServiceUUID(const int ble_service_id, const uint8_t *uuid_chars, const int len_uuid_chars);
+extern err_t setServiceUUID(const int ble_service_id, const char *uuid_chars, const int len_uuid_chars);
 extern err_t setServiceName(const int ble_service_id, const String name);
-extern err_t addCharacteristic(const int ble_service_id, const uint8_t *uuid_chars, const int len_uuid_chars);
+extern err_t addCharacteristic(const int ble_service_id, const char *uuid_chars, const int len_uuid_chars);
 extern err_t setCharacteristicName(const int ble_service_id, const int ble_char_id, const String &name);
 extern err_t setCharacteristicProps(const int ble_service_id, const int ble_char_id, const uint8_t char_props);
 extern err_t setCharacteristicNBytes(const int ble_service_id, const int ble_char_id, const int n_bytes);
@@ -110,7 +110,7 @@ class AT_Processor {
     void sendSerialOkMessage(const char* reply_str);
     void sendSerialFailMessage(const char* reply_str);
 
-    int getUUIDStringFromBuffer(const int len_uuid_chars, uint8_t *uuid_chars); //output is via uuid_chars
+    int getUUIDCharsFromBuffer(const int len_uuid_chars, char *uuid_chars); //output is via uuid_chars
     int getStringFromBuffer(String &out_string); //output is via out_string
     int getValueFromBuffer(int *out_value);  //output is via out_value
     int getCharPropsFromBuffer(const int n_chars_comprising_char_props, uint8_t *char_props); //output is via char_props
@@ -445,17 +445,26 @@ int AT_Processor::processSvcSetupMessageInSerialBuff(void) {
   if (serial_read_ind == serial_write_ind) { sendSerialFailMessage("SVCSETUP format problem");  serial_read_ind = serial_write_ind;  return FORMAT_PROBLEM; }  //remove the message and return
   
   //look for parameter kewords: SERVICEUUID, SERVICENAME, ADDCHAR, CHARPROPS, CHARNAME, CHARNBYTES
-  uint8_t uuid_chars[16]; const int len_uuid_chars = 16; //we might need this
+  char uuid_chars[2*16]; const int len_uuid_chars = 2*16; //we might need this
 
   //look for parameter value of SERVICEUUID
   test_n_char = 11+1; //length of "SERVICEUUID="
   if (compareStringInSerialBuff("SERVICEUUID=",test_n_char)) {
     serial_read_ind = (serial_read_ind + test_n_char) % AT_PROCESSOR_N_BUFFER; //increment the reader index for the serial buffer
     //get the value
-    int err_code = getUUIDStringFromBuffer(len_uuid_chars,uuid_chars);
-    if (err_code != 0) { sendSerialFailMessage("SVCSETUP failed to interpret Service UUID");  serial_read_ind = serial_write_ind;  return FORMAT_PROBLEM; }  //remove the message and return}
+    int err_code = getUUIDCharsFromBuffer(len_uuid_chars, uuid_chars);
+    if (err_code != 0) {
+      String foo = "SVCSETUP failed to interpret Service UUID, err = ";
+      foo += String(err_code);
+      sendSerialFailMessage(foo.c_str());
+      serial_read_ind = serial_write_ind;  
+      return FORMAT_PROBLEM;
+    }  //remove the message and return}
     err_code = setServiceUUID(ble_service_id, uuid_chars, len_uuid_chars);
-    if (err_code != 0) { sendSerialFailMessage("SVCSETUP failed to set Service UUID");  serial_read_ind = serial_write_ind;  return OPERATION_FAILED; }  //remove the message and return}
+    if (err_code != 0) { 
+      sendSerialFailMessage(("SVCSETUP failed to set Service UUID, err = " + String(err_code)).c_str());  
+      serial_read_ind = serial_write_ind;   return OPERATION_FAILED; 
+      }  //remove the message and return}
     sendSerialOkMessage(); return 0;
   }
 
@@ -477,10 +486,10 @@ int AT_Processor::processSvcSetupMessageInSerialBuff(void) {
   if (compareStringInSerialBuff("ADDCHAR=",test_n_char)) {
     serial_read_ind = (serial_read_ind + test_n_char) % AT_PROCESSOR_N_BUFFER; //increment the reader index for the serial buffer
     //get the value
-    int err_code = getUUIDStringFromBuffer(len_uuid_chars, uuid_chars);
-    if (err_code != 0) { sendSerialFailMessage("SVCSETUP failed to interpret Characteristic UUID");  serial_read_ind = serial_write_ind;  return FORMAT_PROBLEM; }  //remove the message and return}
+    int err_code = getUUIDCharsFromBuffer(len_uuid_chars, uuid_chars);
+    if (err_code != 0) { sendSerialFailMessage(("SVCSETUP failed to interpret Characteristic UUID, err = " + String(err_code)).c_str());  serial_read_ind = serial_write_ind;  return FORMAT_PROBLEM; }  //remove the message and return}
     err_code = addCharacteristic(ble_service_id, uuid_chars, len_uuid_chars);
-    if (err_code != 0) { sendSerialFailMessage("SVCSETUP failed to add Characteristic via UUID");  serial_read_ind = serial_write_ind;  return OPERATION_FAILED; }  //remove the message and return}
+    if (err_code != 0) { sendSerialFailMessage(("SVCSETUP failed to add Characteristic via UUID, err = " + String(err_code)).c_str());  serial_read_ind = serial_write_ind;  return OPERATION_FAILED; }  //remove the message and return}
     sendSerialOkMessage(); return 0;
   }
 
@@ -1082,7 +1091,7 @@ void AT_Processor::debugPrintMsgFromSerialBuff(int start_ind, int end_ind) {
   }  
 }
 
-int AT_Processor::getUUIDStringFromBuffer(const int len_uuid_chars, uint8_t *uuid_chars) {
+int AT_Processor::getUUIDCharsFromBuffer(const int len_uuid_chars, char *uuid_chars) {
   if (lengthSerialMessage() < len_uuid_chars) return 1; //error.  Serial message too small
   for (int i=0; i<len_uuid_chars; ++i)  uuid_chars[i] = getFirstCharInBuffer(); //auto-increments serial_read_ind (including wrapping)
   return 0; //no error

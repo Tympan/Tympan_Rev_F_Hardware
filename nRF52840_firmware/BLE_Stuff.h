@@ -21,7 +21,7 @@
 
 ble_gap_addr_t this_gap_addr;
 #define MAC_NBYTES 6
-
+bool was_MAC_set_by_user = false;
 
 
 //   vvvvv  VERSION INDICATION  vvvvv
@@ -46,12 +46,12 @@ BLEUart_Adafruit  bleUart_Adafruit; //Adafruit's built-in UART service
 BLE_BattService   ble_battService;  // battery service
 BLE_LedButtonService           ble_lbs; //standard Nordic LED Button Serice (1 byte of data)
 BLE_LedButtonService_4bytes    ble_lbs_4bytes; //modified Nordic LED Button Service using 4 bytes of data
-BLE_GenericService             ble_generic1, ble_generic2, ble_generic3;
+BLE_GenericService             ble_generic1, ble_generic2;
 //AT_Processor    AT_interpreter(&bleUart_Tympan, &SERIAL_TO_TYMPAN);  //interpreter for the AT command set that we're inventing
 AT_Processor      AT_interpreter(&bleUart_Tympan, &bleUart_Adafruit, &SERIAL_TO_TYMPAN);  //interpreter for the AT command set that we're inventing
 
 // Define a container for holding BLE Services that might need to get invoked independently later
-#define MAX_N_PRESET_SERVICES 16
+#define MAX_N_PRESET_SERVICES 10  //adafruit says that the nRF52 library only allows 10 to be active at one time?
 const int max_n_preset_services = MAX_N_PRESET_SERVICES;
 BLE_Service_Preset* all_service_presets[MAX_N_PRESET_SERVICES];
 BLE_Service_Preset* activated_service_presets[MAX_N_PRESET_SERVICES];
@@ -67,8 +67,8 @@ void connect_callback(uint16_t conn_handle)
   char central_name[32] = { 0 };
   connection->getPeerName(central_name, sizeof(central_name));
   bleConnected = true;
-  Serial.print("nRF52840 Firmware: connect_callback: Connected to "); Serial.print(central_name);
-  Serial.print(", bleConnected = "); Serial.println(bleConnected);
+  Serial.print(F("nRF52840 Firmware: connect_callback: Connected to ")); Serial.print(central_name);
+  Serial.print(F(", bleConnected = ")); Serial.println(bleConnected);
 }
 
 /**
@@ -81,8 +81,8 @@ void disconnect_callback(uint16_t conn_handle, uint8_t reason)
   (void) conn_handle;
   (void) reason;
   bleConnected = false;
-  Serial.print("nRF52840 Firmware: disconnect_callback: Disconnected, reason = 0x"); Serial.print(reason, HEX);
-  Serial.print(", bleConnected = "); Serial.println(bleConnected);
+  Serial.print(F("nRF52840 Firmware: disconnect_callback: Disconnected, reason = 0x")); Serial.print(reason, HEX);
+  Serial.print(F(", bleConnected = ")); Serial.println(bleConnected);
 }
 
 
@@ -111,7 +111,7 @@ void serialEvent(HardwareSerial *serial_from_tympan) { //for the nRF firmware, s
  }
 
 bool enablePresetServiceById(int preset_id, bool enable) {
-  if ((preset_id > 0) && (preset_id < MAX_N_PRESET_SERVICES)) {
+  if ((preset_id > 0) && (preset_id < MAX_N_PRESET_SERVICES)) {  //be sure to exclude preset_id 0 (never disable preset_id 0 because it's the DFU)
     return flag_activateServicePreset[preset_id] = enable;
   }
   return false;
@@ -134,10 +134,11 @@ void beginAllBleServices(int setup_config_id) {
 
   bleBegun = true;
   // set the MAC address
+  if (!was_MAC_set_by_user) this_gap_addr.addr_type=BLE_GAP_ADDR_TYPE_PUBLIC; //there is probably a better place to ensure this is set...but I'm doing it here
   Bluefruit.setAddr(&this_gap_addr);
 
   //set the unique (has 16 HEX characters)!
-  if (DEBUG_VIA_USB) { Serial.print("nRF52840 Firmware: setting BLE name: "); Serial.println(deviceName); };
+  if (DEBUG_VIA_USB) { Serial.print("nRF52840 Firmware: begin: setting BLE name: "); Serial.println(deviceName); };
   Bluefruit.setName(deviceName);
   
   //setup the connect and disconnect callbacks
@@ -151,7 +152,11 @@ void beginAllBleServices(int setup_config_id) {
   // Configure and begin all of the other services (as requested)
   for (preset_id = 1; preset_id < MAX_N_PRESET_SERVICES; preset_id++) {  //start at 1, assuming 0 is always the dfu service
     if (flag_activateServicePreset[preset_id]) {
-      all_service_presets[preset_id]->begin(preset_id); 
+      if (DEBUG_VIA_USB) { Serial.print("nRF52840 Firmware: begin: starting preset service_id = "); Serial.println(preset_id); };
+      err_t err_code = all_service_presets[preset_id]->begin(preset_id); 
+      if (err_code != 0) {
+        if (DEBUG_VIA_USB) Serial.print("nRF52840 Firmware: begin: service_id = " + String(preset_id) + " begin ERROR: code = " + String(err_code)); 
+      }
       activated_service_presets[preset_id] = all_service_presets[preset_id];
     }
   }
@@ -208,8 +213,7 @@ void setupBLE(){
   i++; all_service_presets[i] = &ble_lbs_4bytes;   flag_activateServicePreset[i] = false;     //not active by default
   i++; all_service_presets[i] = &ble_generic1;   flag_activateServicePreset[i] = false;     //not active by default
   i++; all_service_presets[i] = &ble_generic2;   flag_activateServicePreset[i] = false;     //not active by default
-  i++; all_service_presets[i] = &ble_generic3;   flag_activateServicePreset[i] = false;     //not active by default
-  
+
   
   //this sets up all the BLE services and characteristics
   //beginAllBleServices();
@@ -240,6 +244,8 @@ void setMacAddress(char* addr_chars) {
     char c2 = addr_chars[Ibyte*2+1];
     this_gap_addr.addr[MAC_NBYTES-1-Ibyte]=hexCharsToByte(c1,c2);
   }
+
+  was_MAC_set_by_user = true;
 
   //the MAC will actually get set when the services are started
 }
@@ -300,14 +306,14 @@ int sendBleDataByServiceAndChar(int command, int service_id, int char_id, int nb
       if (service_ptr->service_id == service_id) {
         if (command == 1) {
           if (DEBUG_VIA_USB) {
-            Serial.print("sendBleDataByServiceAndChar: BLE WRITE to characteristic " + String(char_id) + ", data = ");
+            Serial.print(F("sendBleDataByServiceAndChar: BLE WRITE to characteristic ")); Serial.print(char_id); Serial.print(F(", data = "));
             Serial.write(databytes, nbytes);
             Serial.println();
           }
           service_ptr->write(char_id, databytes,nbytes); data_sent = true;
         } else if (command == 2) {
           if (DEBUG_VIA_USB) {
-            Serial.print("sendBleDataByServiceAndChar: BLE NOTIFY to characteristic " + String(char_id) + ", data = ");
+            Serial.print(F("sendBleDataByServiceAndChar: BLE NOTIFY to characteristic ")); Serial.print(char_id); Serial.print(F(", data = "));
             Serial.write(databytes, nbytes); 
             Serial.println(); 
           }
@@ -317,30 +323,30 @@ int sendBleDataByServiceAndChar(int command, int service_id, int char_id, int nb
     }
     Iservice++;  //increment to look at next service in the list
   }
-  if ((data_sent == false) && DEBUG_VIA_USB) Serial.println("sendBleDataByServiceAndChar: data NOT sent to service " + String(service_id) + " because no matching service ID found");
+  if ((data_sent == false) && DEBUG_VIA_USB) { Serial.print(F("sendBleDataByServiceAndChar: data NOT sent to service ")); Serial.print(service_id); Serial.println(F(" because no matching service ID found")); }
   if (data_sent == false) return -1;
   return 0;
 }
 
-//UUID is composed of 8 hexadecimal numbers (16 hex characters).  we need to reverse each hex number,
-//which means that we need to step backwards across pairs of characters
-err_t copyUUIDinReverse(const uint8_t *given_uuid, const int len_given_uuid, UUID_t *targ_uuid) {
-  if (len_given_uuid != targ_uuid->len) return (err_t)1; //error, sizes are wrong!
-  int n_vals = (int)(len_given_uuid/2);
+//UUID is composed of 16 uint8_t numbers.  Given 32 characters, interpret as 16 uint8_t values.
+//We also need to reverse each hex number, which means that we need to step backwards across pairs of characters
+err_t interpretUUIDinReverse(const char *given_uuid, const int len_given_uuid_chars, UUID_t *targ_uuid) {
+  int n_vals = (int)(len_given_uuid_chars/2); 
+  if (n_vals != (targ_uuid->len)) return (err_t)1; //error, sizes are wrong!
   int source_ind, targ_ind;
   for (int Ival = 0; Ival < n_vals; ++Ival) {
     source_ind = (n_vals-Ival-1)*2; //end, moving backwards
-    targ_ind = Ival*2; //start, moving forwards
-    targ_uuid->uuid[targ_ind] = given_uuid[source_ind];
-    targ_uuid->uuid[targ_ind+1] = given_uuid[source_ind+1];
+    char c1 = given_uuid[source_ind];
+    char c2 = given_uuid[source_ind+1];
+    targ_uuid->uuid[Ival] = hexCharsToByte(c1,c2);
   }
   return (err_t)0;  //no error
 }
 
-err_t setServiceUUID(const int ble_service_id, const uint8_t *uuid_chars, const int len_uuid_chars) {
+err_t setServiceUUID(const int ble_service_id, const char *uuid_chars, const int len_uuid_chars) {
   //copy the UUID (in reverse order, as required by BLE_GenericService)
   UUID_t this_uuid;
-  err_t err_code = copyUUIDinReverse(uuid_chars, len_uuid_chars, &this_uuid);
+  err_t err_code = interpretUUIDinReverse(uuid_chars, len_uuid_chars, &this_uuid);
   if (err_code !=0) return (err_t)1;  //error, wrong size
 
   //if the service_id is valid for a ble_generic, set the UUID and allow it to be enabled
@@ -349,8 +355,6 @@ err_t setServiceUUID(const int ble_service_id, const uint8_t *uuid_chars, const 
     ble_generic = &ble_generic1;
   } else if (ble_service_id == 8) {
     ble_generic = &ble_generic2;
-  } else if (ble_service_id == 9) {
-    ble_generic = &ble_generic3;
   } else {
     return (err_t)2;  //error didn't recognize the ble_service_id
   }
@@ -372,8 +376,6 @@ err_t setServiceName(const int ble_service_id, const String name) {
     ble_generic = &ble_generic1;
   } else if (ble_service_id == 8) {
     ble_generic = &ble_generic2;
-  } else if (ble_service_id == 9) {
-    ble_generic = &ble_generic3;
   } else {
     return (err_t)2;  //error didn't recognize the ble_service_id
   }
@@ -386,10 +388,10 @@ err_t setServiceName(const int ble_service_id, const String name) {
   return (err_t)99;  //we should not get here.  unknown error
 }
 
-err_t addCharacteristic(const int ble_service_id, const uint8_t *uuid_chars, const int len_uuid_chars) {
+err_t addCharacteristic(const int ble_service_id, const char *uuid_chars, const int len_uuid_chars) {
   //copy the UUID (in reverse order, as required by BLE_GenericService)
   UUID_t this_uuid;
-  err_t err_code = copyUUIDinReverse(uuid_chars, len_uuid_chars, &this_uuid);
+  err_t err_code = interpretUUIDinReverse(uuid_chars, len_uuid_chars, &this_uuid);
   if (err_code !=0) return (err_t)1;  //error, wrong size
 
   //if the service_id is valid for a ble_generic, set the UUID and allow it to be enabled
@@ -398,8 +400,6 @@ err_t addCharacteristic(const int ble_service_id, const uint8_t *uuid_chars, con
     ble_generic = &ble_generic1;
   } else if (ble_service_id == 8) {
     ble_generic = &ble_generic2;
-  } else if (ble_service_id == 9) {
-    ble_generic = &ble_generic3;
   } else {
     return (err_t)2;  //error didn't recognize the ble_service_id
   }
@@ -421,8 +421,6 @@ err_t setCharacteristicName(const int ble_service_id, const int ble_char_id, con
     ble_generic = &ble_generic1;
   } else if (ble_service_id == 8) {
     ble_generic = &ble_generic2;
-  } else if (ble_service_id == 9) {
-    ble_generic = &ble_generic3;
   } else {
     return (err_t)2;  //error didn't recognize the ble_service_id
   }
@@ -443,8 +441,6 @@ err_t setCharacteristicProps(const int ble_service_id, const int ble_char_id, co
     ble_generic = &ble_generic1;
   } else if (ble_service_id == 8) {
     ble_generic = &ble_generic2;
-  } else if (ble_service_id == 9) {
-    ble_generic = &ble_generic3;
   } else {
     return (err_t)2;  //error didn't recognize the ble_service_id
   }
@@ -465,8 +461,6 @@ err_t setCharacteristicNBytes(const int ble_service_id, const int ble_char_id, c
     ble_generic = &ble_generic1;
   } else if (ble_service_id == 8) {
     ble_generic = &ble_generic2;
-  } else if (ble_service_id == 9) {
-    ble_generic = &ble_generic3;
   } else {
     return (err_t)2;  //error didn't recognize the ble_service_id
   }

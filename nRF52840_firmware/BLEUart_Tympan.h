@@ -73,8 +73,8 @@ class BLEUart_Tympan : public virtual BLEUart, public virtual BLE_Service_Preset
     }
 
     //additional methods required by BLE_Service_Preset
-    size_t write( const int char_id, const uint8_t* data, size_t len) override { return BLEUart::write(data, len); }
-    size_t notify(const int char_id, const uint8_t* data, size_t len) override { return BLEUart::write(data, len); }
+    size_t write( const int char_id, const uint8_t* data, size_t len) override { if (has_begun) { return BLEUart::write(data, len); } return 0; }
+    size_t notify(const int char_id, const uint8_t* data, size_t len) override { if (has_begun) { return BLEUart::write(data, len); } return 0; }
     BLEService* getServiceToAdvertise(void) override { return this; }
 
     // ID Strings to be used by the nRF52 firmware to enable recognition by Tympan Remote App

@@ -28,8 +28,8 @@ class BLEUart_Adafruit : public virtual BLEUart, public virtual BLE_Service_Pres
     }
 
     //additional methods required by BLE_Service_Preset
-    size_t write( const int char_id, const uint8_t* data, size_t len) override { return BLEUart::write(data, len); }
-    size_t notify(const int char_id, const uint8_t* data, size_t len) override { return BLEUart::write(data, len); }
+    size_t write( const int char_id, const uint8_t* data, size_t len) override { if (has_begun) { return BLEUart::write(data, len); } return 0; }
+    size_t notify(const int char_id, const uint8_t* data, size_t len) override { if (has_begun) { return BLEUart::write(data, len); } return 0; }
     BLEService* getServiceToAdvertise(void) override { return this; }
 
     //define how many characteristics and what their ID numbes are

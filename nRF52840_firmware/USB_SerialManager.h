@@ -31,6 +31,7 @@ void printHelpToUSB(void) {
   Serial.print(  "   : bleBegun: "); Serial.println(bleBegun);
   Serial.print(  "   : bleConnected: "); Serial.println(bleConnected);
   Serial.println("   : Send 'h' via USB to get this help");
+  Serial.println("   : Send 'J' via USB to send 'J' to the Tympan");
   if (bleBegun == false) {
     Serial.println(" : Configuration:");
     Serial.println("   : Send 'M' to set MAC address to AABBCCEEDDFF");
@@ -46,20 +47,26 @@ void printHelpToUSB(void) {
     Serial.println("   : send '%' to enable advertising of service: " + String(all_service_presets[5]->getName(foo_str)));
     Serial.println("   : send '6' to enable service: " + String(all_service_presets[6]->getName(foo_str)));
     Serial.println("   : send '^' to enable advertising of service: " + String(all_service_presets[6]->getName(foo_str)));
+    Serial.println("   : send '7' to enable service: " + String(all_service_presets[7]->getName(foo_str)) + " with 2 characteristic");
+    Serial.println("   : send '&' to enable advertising of service: " + String(all_service_presets[7]->getName(foo_str)));
+    Serial.println("   : send '8' to enable service: " + String(all_service_presets[8]->getName(foo_str)) + " with 3 characteristics");
+    Serial.println("   : send '*' to enable advertising of service: " + String(all_service_presets[8]->getName(foo_str)));
     Serial.println("   : Send 'b' or 'B' to begin all enabled services");
+  } else {
+    Serial.println(" : Trial Commands:");
+    Serial.println("   : Send 'v' to send AT command 'GET ADVERT_SERVICE_ID'");
+    Serial.println("   : Send 'q' to send AT command 'BLEWRITE 1 6 5 Zelda'");
+    Serial.println("   : Send 'w' to send AT command 'BLENOTIFY 2 0 1 9'");
+    Serial.println("   : Send 'e' to send AT command 'BLENOTIFY 3 0 2 aa'");
+    Serial.println("   : Send 'r' to send AT command 'BLENOTIFY 4 0 1 0x41' (which is 65)");
+    Serial.println("   : Send 't' to send AT command 'BLENOTIFY 5 0 1 0x63'");
+    Serial.println("   : Send 'y' to send AT command 'BLENOTIFY 5 0 1 0x01 (which is 'On')");
+    Serial.println("   : Send 'Y' to send AT command 'BLENOTIFY 5 0 1 0x00 (which is 'Off')");
+    Serial.println("   : Send 'u' to send AT command 'BLENOTIFY 6 0 4 0x42C80000' (which is 100.0)");
+    Serial.println("   : Send 'i' to send AT command 'BLENOTIFY 6 1 4 5678'");
+    Serial.println("   : Send 'o' to send AT command 'BLENOTIFY 7 1 1 5'");
+    Serial.println("   : Send 'p' to send AT command 'BLENOTIFY 8 2 4 4 0x42C80000' (which is 100.0)");
   }
-  Serial.println(" : Trial Commands:");
-  Serial.println("   : Send 'J' via USB to send 'J' to the Tympan");
-  Serial.println("   : Send 'v' to send AT command 'GET ADVERT_SERVICE_ID'");
-  Serial.println("   : Send 'q' to send AT command 'BLEWRITE 1 6 5 Zelda'");
-  Serial.println("   : Send 'w' to send AT command 'BLENOTIFY 2 0 1 9'");
-  Serial.println("   : Send 'e' to send AT command 'BLENOTIFY 3 0 2 aa'");
-  Serial.println("   : Send 'r' to send AT command 'BLENOTIFY 4 0 1 0x41' (which is 65)");
-  Serial.println("   : Send 't' to send AT command 'BLENOTIFY 5 0 1 0x63'");
-  Serial.println("   : Send 'y' to send AT command 'BLENOTIFY 5 0 1 0x01 (which is 'On')");
-  Serial.println("   : Send 'Y' to send AT command 'BLENOTIFY 5 0 1 0x00 (which is 'Off')");
-  Serial.println("   : Send 'u' to send AT command 'BLENOTIFY 6 0 4 0x42C80000' (which is 100.0)");
-  Serial.println("   : Send 'i' to send AT command 'BLENOTIFY 6 1 4 5678'");
 }
 
 int serialManager_processCharacter(char c) {
@@ -111,7 +118,44 @@ int serialManager_processCharacter(char c) {
       //enablePresetServiceById((int)(c - '0'),true);
       issueATCommand("SET ENABLE_SERVICE_ID6=TRUE");
       break;
-  
+    case '7':
+      {
+      Serial.println("nRF52840 Firmware: enabling preset " + String(c));
+      String cmd;
+      cmd = "SET MAC=AABBCCDDEEFF";   issueATCommand(cmd);
+      cmd = "SVCSETUP 7 0 SERVICEUUID=00112233445566778899AABBCCDDEEFF";   issueATCommand(cmd);
+      cmd = String("SVCSETUP 7 0 SERVICENAME=Service") + String(c);   issueATCommand(cmd);
+      cmd = "SVCSETUP 7 0 ADDCHAR=00112233445566778899AABBCCDDEEFE";   issueATCommand(cmd);
+      cmd = "SVCSETUP 7 0 CHARPROPS=00001010";   issueATCommand(cmd);
+      cmd = "SVCSETUP 7 0 CHARNAME=MyWrite";   issueATCommand(cmd);
+      cmd = "SVCSETUP 7 0 CHARNBYTES=1";   issueATCommand(cmd);
+      cmd = "SVCSETUP 7 0 ADDCHAR=00112233445566778899AABBCCDDEEFD";   issueATCommand(cmd);
+      cmd = "SVCSETUP 7 1 CHARPROPS=00010010";   issueATCommand(cmd);
+      cmd = "SVCSETUP 7 1 CHARNAME=MyRead";   issueATCommand(cmd);
+      cmd = "SVCSETUP 7 1 CHARNBYTES=1";   issueATCommand(cmd);
+      }
+      break;
+    case '8':
+      {
+      Serial.println("nRF52840 Firmware: enabling preset " + String(c));
+      String cmd;
+      cmd = "SET MAC=AABBCCDDEEFF";   issueATCommand(cmd);
+      cmd = "SVCSETUP 8 0 SERVICEUUID=00112233445566778899AABBCCDDEEFC";   issueATCommand(cmd);
+      cmd = String("SVCSETUP 8 0 SERVICENAME=Service") + String(c);   issueATCommand(cmd);
+      cmd = "SVCSETUP 8 0 ADDCHAR=00112233445566778899AABBCCDDEEFB";   issueATCommand(cmd);
+      cmd = "SVCSETUP 8 0 CHARPROPS=00001010";   issueATCommand(cmd);
+      cmd = "SVCSETUP 8 0 CHARNAME=MyWrite 4-bytes";   issueATCommand(cmd);
+      cmd = "SVCSETUP 8 0 CHARNBYTES=4";   issueATCommand(cmd);
+      cmd = "SVCSETUP 8 1 ADDCHAR=00112233445566778899AABBCCDDEEFA";   issueATCommand(cmd);
+      cmd = "SVCSETUP 8 1 CHARPROPS=00010010";   issueATCommand(cmd);
+      cmd = "SVCSETUP 8 1 CHARNAME=MyRead1 4-bytes";   issueATCommand(cmd);
+      cmd = "SVCSETUP 8 1 CHARNBYTES=4";   issueATCommand(cmd);
+      cmd = "SVCSETUP 8 2 ADDCHAR=00112233445566778899AABBCCDDEEF9";   issueATCommand(cmd);
+      cmd = "SVCSETUP 8 2 CHARPROPS=00010010";   issueATCommand(cmd);
+      cmd = "SVCSETUP 8 2 CHARNAME=MyRead2 4-bytes";   issueATCommand(cmd);
+      cmd = "SVCSETUP 8 2 CHARNBYTES=4";   issueATCommand(cmd);
+      }
+      break;
     case '!':
       Serial.println("nRF52840 Firmware: choose preset 1 for advertising");
       //setAdvertisingServiceToPresetById(1);
@@ -124,25 +168,28 @@ int serialManager_processCharacter(char c) {
       break;
     case '#':
       Serial.println("nRF52840 Firmware: choose preset 3 for advertising");
-      //setAdvertisingServiceToPresetById(3);
       issueATCommand("SET ADVERT_SERVICE_ID=3");
       break;  
     case '$':
       Serial.println("nRF52840 Firmware: choose preset 4 for advertising");
-      //setAdvertisingServiceToPresetById(4);
       issueATCommand("SET ADVERT_SERVICE_ID=4");
       break; 
     case '%':
-      Serial.println("nRF52840 Firmware: choose preset 4 for advertising");
-      //setAdvertisingServiceToPresetById(4);
+      Serial.println("nRF52840 Firmware: choose preset 5 for advertising");
       issueATCommand("SET ADVERT_SERVICE_ID=5");
       break; 
     case '^':
-      Serial.println("nRF52840 Firmware: choose preset 4 for advertising");
-      //setAdvertisingServiceToPresetById(4);
+      Serial.println("nRF52840 Firmware: choose preset 6 for advertising");
       issueATCommand("SET ADVERT_SERVICE_ID=6");
       break; 
-
+    case '&':
+      Serial.println("nRF52840 Firmware: choose preset 7 for advertising");
+      issueATCommand("SET ADVERT_SERVICE_ID=7");
+      break; 
+    case '*':
+      Serial.println("nRF52840 Firmware: choose preset 8 for advertising");
+      issueATCommand("SET ADVERT_SERVICE_ID=8");
+      break; 
     case 'J':
       Serial.println("nRF52840 Firmware: sending J to Tympan...");
       SERIAL_TO_TYMPAN.println("J");
@@ -197,7 +244,16 @@ int serialManager_processCharacter(char c) {
     case 'i':
       issueATCommand(String("BLENOTIFY 6 1 4 5678"));
       break;
-
+    case 'o':
+      issueATCommand(String("BLENOTIFY 7 1 1 5"));
+      break;
+    case 'p':
+      {
+        const unsigned int len_msg = 20;
+        char message[len_msg] = {'B','L','E','N','O','T','I','F','Y',' ','8',' ','2',' ','4',' ', 0x42, 0xC8, 0x00, 0x00};
+        issueATCommand(message,len_msg);
+      }
+      break;
   }
   return 0;
 }

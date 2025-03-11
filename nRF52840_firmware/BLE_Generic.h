@@ -35,7 +35,11 @@ typedef struct {
 
 class BLE_GenericService : public virtual BLE_Service_Preset {
   public:
-    BLE_GenericService(void) : BLE_Service_Preset() { is_service_uuid_specified = false; }
+    BLE_GenericService(void) : BLE_Service_Preset() { 
+      is_service_uuid_specified = false; 
+      self_ptr_table.push_back(this);
+      name = String("BLE_Generic") + String(self_ptr_table.size()-1);
+    }
     ~BLE_GenericService(void) override {
       //remove this instance from the static table holding pointers to all instances of BLE_GenericService
       for (auto i=0; i<self_ptr_table.size(); ++i) { 
@@ -169,6 +173,7 @@ err_t BLE_GenericService::begin(int id) {  //err_t is inhereted from bluefruit.h
 
   // Configure each characteristic that has been defined
   for (auto i=0; i<characteristic_info_table.size(); ++i) {
+    //if (DEBUG_VIA_USB) { Serial.print(F("BLE_Generic: begin: configuring characteristic ")); Serial.println(i); }
     if ((int)characteristic_ptr_table.size() >= max_char_ids) return (err_t)2;  //attempting to create too many!
 
     //get the pre-defined info about this new characteristic
@@ -181,7 +186,7 @@ err_t BLE_GenericService::begin(int id) {  //err_t is inhereted from bluefruit.h
     //set all of the properties of he new characteristic
     new_char->setProperties(char_info->props);
     new_char->setPermission(SECMODE_OPEN, SECMODE_OPEN);
-    new_char->setFixedLen(char_info->n_bytes);
+    new_char->setFixedLen(char_info->n_bytes); 
     new_char->setUserDescriptor(char_info->name.c_str());
     new_char->begin();
     if (char_info->props & CHR_PROPS_WRITE) { //can this charcterisitc receive data in?
@@ -220,18 +225,18 @@ void BLE_GenericService::write_callback(uint16_t conn_hdl, BLECharacteristic* ch
   }
 
   #if DEBUG_VIA_USB
-    Serial.print("BLE_GenericService: write_callback:");
-    Serial.print(" Recevied value = " + String(data[0]));
-    //Serial.print(", from: "); Serial.print(central_name);
+    Serial.print(F("BLE_Generic: write_callback: "));
+    Serial.print(" Rcvd data (len = " + String(len) + "): ");
+    for (uint16_t i=0; i<len; ++i) {Serial.print("0x"); Serial.print(data[i],HEX); Serial.print(" ");}
     if (service_id >= 0) { 
       Serial.print(", from service_id: " + String(service_id));
     } else {
-      Serial.print(", from service UUID: " ); Serial.print(svc->uuid.toString());
+      Serial.print(F(", from service UUID: ")); Serial.print(svc->uuid.toString());
     }
     if (char_id >= 0) {
       Serial.print(", from char_id: " + String(char_id));
     } else {
-      Serial.print(", from char UUID: "); Serial.print(chr->uuid.toString());
+      Serial.print(F(", from char UUID: ")); Serial.print(chr->uuid.toString());
     }
     Serial.println();
   #endif
