@@ -24,7 +24,7 @@ Like all previous Tympan revisions, the Rev F has expansion headers to allow the
 
 ![image](https://github.com/user-attachments/assets/a26e8489-7858-4f8a-ab4f-d68a1e3317bf)
 
-![image](https://github.com/user-attachments/assets/962e2c15-0360-4d0e-9a89-9083efc45ea0)
+<img src="https://github.com/user-attachments/assets/962e2c15-0360-4d0e-9a89-9083efc45ea0" width="400">
 
 # Programming The Radio Module
 
