@@ -16,7 +16,7 @@ For the most part, the design of Rev F is a clone of Rev E. The primary challeng
 	- I2S connections between Teensy 4.1 and nRF52 on I2S_2 pins
 - UART coms with the BC127 were slower than desired
 	- The SPI_1 bus is connected to nRF module for higher speed
-	- The UART pins are still connected
+	- The UART pins are still connected and the default speed is now 115200 bps (instead of earlier Tympan's defaulting to 9600)
 
 # Programming The Radio Module
 
