@@ -18,6 +18,14 @@ For the most part, the design of Rev F is a clone of Rev E. The primary challeng
 	- The SPI_1 bus is connected to nRF module for higher speed
 	- The UART pins are still connected and the default speed is now 115200 bps (instead of earlier Tympan's defaulting to 9600)
 
+# Pinout of Expansion Headers
+
+Like all previous Tympan revisions, the Rev F has expansion headers to allow the addition of add-on boards, such as the Tympan AIC shield.  The pinout for the expansion headers is identical for Rev F as for previous Tympan revisions.  The pinout is shown in the [schematic](https://github.com/Tympan/Tympan_Rev_F_Hardware/blob/main/Tympan_Rev_F/Tympan_Rev_F_schematic.pdf) as headers P1 through P4.  You can also see the pinout below.
+
+![image](https://github.com/user-attachments/assets/a26e8489-7858-4f8a-ab4f-d68a1e3317bf)
+
+![image](https://github.com/user-attachments/assets/962e2c15-0360-4d0e-9a89-9083efc45ea0)
+
 # Programming The Radio Module
 
 ## Over The Air Firmware Updates
