@@ -779,8 +779,9 @@ int AT_Processor::processGetMessageInSerialBuff(void) {
     } else {
       ret_val = 2;
       sendSerialFailMessage("GET NAME had formatting problem");
-      serial_read_ind = serial_write_ind;  //remove the message
+      //serial_read_ind = serial_write_ind;  //remove the message ... INCORRECT LOCAITON FOR THIS!  (v0.4.0 and earlier)
     }
+    serial_read_ind = serial_write_ind;  //remove the message ... CORRECTED LOCATION (v.0.4.1 and later)
   } 
 
   test_n_char = 7; //length of "RFSTATE"

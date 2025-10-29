@@ -25,7 +25,7 @@ bool was_MAC_set_by_user = false;
 
 
 //   vvvvv  VERSION INDICATION  vvvvv
-const char versionString[] = "TympanBLE v0.4.0, nRF52840";
+const char versionString[] = "TympanBLE v0.4.1, nRF52840";
 char deviceName[] = "TympanF-TACO"; // gets modified with part of the uniqueID
 const char manufacturerName[] = "Flywheel Lab";
 
