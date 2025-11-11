@@ -133,6 +133,9 @@ void loop(void) {
     if (bleUart_Adafruit.has_begun) BLEevent(&bleUart_Adafruit, &SERIAL_TO_TYMPAN);  
   }
 
+  //Service out-going BLE comms that have been queued by the AT-style processor
+  AT_interpreter.update(millis());
+
   //service the LEDs
   serviceLEDs(millis());
 

@@ -25,7 +25,7 @@ bool was_MAC_set_by_user = false;
 
 
 //   vvvvv  VERSION INDICATION  vvvvv
-const char versionString[] = "TympanBLE v0.4.1, nRF52840";
+const char versionString[] = "TympanBLE v0.5.0, nRF52840";
 char deviceName[] = "TympanF-TACO"; // gets modified with part of the uniqueID
 const char manufacturerName[] = "Flywheel Lab";
 
@@ -58,6 +58,16 @@ BLE_Service_Preset* activated_service_presets[MAX_N_PRESET_SERVICES];
 bool flag_activateServicePreset[MAX_N_PRESET_SERVICES];   //set to true to activate that preset service
 int service_preset_to_ble_advertise;  //which of the presets to include in the advertising.  will be set in setup
 
+int getConnectionInterval_msec(void) {
+  if (!bleConnected) return -1;
+  BLEConnection* connection = Bluefruit.Connection(handle);
+  if (connection == nullptr) return -1;
+
+  //see https://github.com/adafruit/Adafruit_nRF52_Arduino/blob/4a2d8dd5be9686b6580ed2249cae43972922572f/libraries/Bluefruit52Lib/src/BLEConnection.cpp#L108
+  //which eventually traces to: https://github.com/adafruit/Adafruit_nRF52_Arduino/blob/4a2d8dd5be9686b6580ed2249cae43972922572f/cores/nRF5/nordic/softdevice/s132_nrf52_6.1.1_API/include/ble_gap.h#L712
+  return (int)(((float)connection->getConnectionInterval()*1.25f) + 0.5f); //in looking at Adafruit docs, it looks like the units are 1.25msec...so I multiply by 1.25 to get the units I want
+}
+
 // callback invoked when central connects
 void connect_callback(uint16_t conn_handle)
 {
@@ -69,6 +79,9 @@ void connect_callback(uint16_t conn_handle)
   bleConnected = true;
   Serial.print(F("nRF52840 Firmware: connect_callback: Connected to ")); Serial.print(central_name);
   Serial.print(F(", bleConnected = ")); Serial.println(bleConnected);
+  //Serial.print(F(", connection_interval (msec) =")); Serial.println(getConnectionInterval_msec());
+
+  AT_interpreter.updateBleConnectionInterval_msec(getConnectionInterval_msec());
 }
 
 /**
@@ -473,5 +486,8 @@ err_t setCharacteristicNBytes(const int ble_service_id, const int ble_char_id, c
   }
   return (err_t)99;  //we should not get here.  unknown error 
 }
+
+
+
 
 

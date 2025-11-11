@@ -26,6 +26,7 @@
 
 #include <bluefruit.h>  //gives us the global "Bluefruit" class instance
 #include "LED_controller.h"
+#include "CircularMsgQueue.h"
 
 //externals that are needed here
 extern LED_controller led_control;
@@ -47,9 +48,10 @@ extern err_t addCharacteristic(const int ble_service_id, const char *uuid_chars,
 extern err_t setCharacteristicName(const int ble_service_id, const int ble_char_id, const String &name);
 extern err_t setCharacteristicProps(const int ble_service_id, const int ble_char_id, const uint8_t char_props);
 extern err_t setCharacteristicNBytes(const int ble_service_id, const int ble_char_id, const int n_bytes);
+extern int getConnectionInterval_msec(void);
 
 //running on the nRF52, this interprets commands coming from the hardware serial and send replies out to the BLE
-#define AT_PROCESSOR_N_BUFFER 512
+#define AT_PROCESSOR_N_BUFFER 1024
 class AT_Processor {
   public:
     AT_Processor(BLEUart_Tympan *_bleuart1, HardwareSerial *_ser_ptr) : ble_ptr1(_bleuart1) , serial_ptr(_ser_ptr) {}
@@ -62,6 +64,11 @@ class AT_Processor {
     virtual int lengthSerialMessage(void);
     virtual int processSerialMessage(void);
 
+    virtual void update(unsigned long cur_millis); //call this from the main loop() to service queued-up tx messages or whatever
+
+    virtual int updateBleConnectionInterval_msec(const int conn_interval_msec);  //returns zero for success
+    virtual int setQueueDelay_msec(const int delay_msec);  //returns zero for success
+    
   protected:
     BLEUart_Tympan *ble_ptr1 = NULL;
     BLEUart *ble_ptr2 = NULL;
@@ -84,14 +91,26 @@ class AT_Processor {
     const int max_ble_nbytes = 32;
     uint8_t ble_databytes[32];
 
-    //circular buffer for reading from Serial
+    //circular buffer for reading from Serial from Tympan
     char serial_buff[AT_PROCESSOR_N_BUFFER];
     int serial_read_ind = 0;
     int serial_write_ind = 0;
 
+    //circular buffer for outgoing BLE payloads
+    CircularMessageQueue txQueue;
+    unsigned long txQueue_lastTX_millis = 0;
+    unsigned long txQueue_reqDelay_millis = 16; //how much delay between packets is required?
+    bool flag_userSetQueueDelay = false;     //stays false until user sets their own delay.  While it is false, it will auto-adjust to the BLE connection interval
+
+    //logging of SEND and QUEUE operations
+    unsigned int txLog_numCalls = 0;
+    size_t txLog_bytesLastGiven = 0;
+    size_t txLog_bytesLastSent = 0;  //save in case asked later
+
     //methods corresponding to the detailed actions that can be taken
     bool compareStringInSerialBuff(const char* test_str, int n);
     bool skipSpaceIfNextInBuffer(void);
+    String extractVerbFromSerialBuff(void);
 
     int processSvcSetupMessageInSerialBuff(void);  
     int processBeginMessageInSerialBuff(void);
@@ -103,17 +122,23 @@ class AT_Processor {
     int setAdvertisingFromSerialBuff(void);
     int setAdvServiceIdFromSerialBuff(void);
     int setLedModeFromSerialBuff(void);
+    int setQueueDelayFromSerialBuff(void);
     int bleSendFromSerialBuff(void);
+    int bleSendFromSerialBuff(const bool flag_useTxQueue);
     void debugPrintMsgFromSerialBuff(void);
     void debugPrintMsgFromSerialBuff(int, int);
     void sendSerialOkMessage(void);
     void sendSerialOkMessage(const char* reply_str);
+    void sendSerialOkMessage(const String &str) { sendSerialOkMessage(str.c_str()); }
     void sendSerialFailMessage(const char* reply_str);
+    void sendSerialFailMessage(const String &str) { sendSerialFailMessage(str.c_str()); }
 
     int getUUIDCharsFromBuffer(const int len_uuid_chars, char *uuid_chars); //output is via uuid_chars
     int getStringFromBuffer(String &out_string); //output is via out_string
     int getValueFromBuffer(int *out_value);  //output is via out_value
     int getCharPropsFromBuffer(const int n_chars_comprising_char_props, uint8_t *char_props); //output is via char_props
+
+    size_t writeToBle(const uint8_t *this_msg, const int act_msg_len); //this pushes the bytes to the underlying nRF52 write() call
 
     const int VERB_NOT_KNOWN = 1;
     const int PARAMETER_NOT_KNOWN = 2;
@@ -122,6 +147,8 @@ class AT_Processor {
     const int NOT_IMPLEMENTED_YET = 5;
     const int DATA_WRONG_SIZE = 6;
     const int DATA_WRONG_FORMAT = 7;
+    const int NO_BYTES_SENT = 8;
+    const int TX_QUEUE_FULL = 9;
     const int NO_BLE_CONNECTION = 99;
 
     static int interpret0toF(const char val) {
@@ -138,8 +165,56 @@ class AT_Processor {
     }
 };
 
+size_t AT_Processor::writeToBle(const uint8_t *this_msg, const int act_msg_len) {
+  size_t bytes_sent = 0;
+  if (bleConnected) {
+    //try both UART connections, though in practice only one will likely be used at a time.
+    if (ble_ptr1) bytes_sent = ble_ptr1->write(0, this_msg, act_msg_len ); //characteristic ID 0
+    if (ble_ptr2) bytes_sent = ble_ptr2->write(this_msg, act_msg_len );
+    
+    //note: It's fine if nothing is connected.  If no device is connected, we don't care if the message
+    //is lost forever.
+
+    //logging
+    txLog_numCalls++;
+    txLog_bytesLastGiven = act_msg_len;
+    txLog_bytesLastSent = bytes_sent;  //save in case asked later
+  }
+  return bytes_sent;
+}
+
+void AT_Processor::update(unsigned long cur_millis) {
+  //are there messages queued up?
+  if (txQueue.getNumMsgs() <= 0) return;  //no messages to relay
+
+  //has enough time passed to send the queued message?
+  if (cur_millis < txQueue_lastTX_millis) txQueue_lastTX_millis = 0;    //handle the wrap around of the clock
+  if (cur_millis < (txQueue_lastTX_millis + txQueue_reqDelay_millis)) return;  //not ready yet
+
+  //get the message
+  const int max_msg_len = AT_PROCESSOR_N_BUFFER;
+  uint8_t this_msg[max_msg_len];
+  int act_msg_len=0;
+  int err_code = txQueue.dequeue(&(this_msg[0]), &act_msg_len, max_msg_len);
+    
+  //what happens if we failed to get the message?
+  if (err_code != 0) {
+    //Serial.print("AT_Processor: update: *** ERROR ***: Queued message too long for given array!");
+    txQueue.incrementToReadNextMsg();  //if the message was too long, it won't have cleared it (assuming you might want to try again).  Instead, let's just clear it.
+    return;
+  }
+
+  //transmit the message
+  size_t bytes_sent = writeToBle((const uint8_t *)this_msg, act_msg_len);
+  
+  //note the time so that we can pace ourselves for the next time
+  txQueue_lastTX_millis = cur_millis;
+}
+
 void AT_Processor::addToSerialBuffer(char c) {
-  serial_buff[serial_write_ind] = c; serial_write_ind++; if (serial_write_ind >= AT_PROCESSOR_N_BUFFER) serial_write_ind = 0;
+  serial_buff[serial_write_ind] = c; 
+  serial_write_ind++;
+  if (serial_write_ind >= AT_PROCESSOR_N_BUFFER) serial_write_ind = 0;  //wrap around
 }
 
 char AT_Processor::getFirstCharInBuffer(void) {
@@ -284,7 +359,7 @@ int AT_Processor::processSerialCharacterAsBleMessage(char c) {
         rx_mode = RXMODE_LOOK_FOR_ANY;
       } else { 
         String foo_str = "SEND BLE DATA failed to " + String(ble_service_id) + ", " + String(ble_char_id);
-        sendSerialFailMessage(foo_str.c_str());
+        sendSerialFailMessage(foo_str);
         rx_mode = RXMODE_LOOK_FOR_ANY;
       }
       serial_read_ind = serial_write_ind;  //clear any remaining message
@@ -332,8 +407,18 @@ int AT_Processor::processSerialMessage(void) {
     if (compareStringInSerialBuff("SEND ",test_n_char)) {  //does the current message start this way
       serial_read_ind = (serial_read_ind + test_n_char) % AT_PROCESSOR_N_BUFFER; //increment the reader index for the serial buffer
       if (DEBUG_VIA_USB) { Serial.print("AT_Processor: recvd: SEND "); debugPrintMsgFromSerialBuff(); Serial.println();}
-      bleSendFromSerialBuff(); //must not have any carriage return characters in the payload (other than the trailing carriage return that concludes every message)
-      ret_val = 0; 
+      ret_val = bleSendFromSerialBuff(); //must not have any carriage return characters in the payload (other than the trailing carriage return that concludes every message)
+    }
+  }
+
+  //test for the verb "QUEUE"
+  test_n_char = 5+1;   //how long is "QUEUE "
+  if (len >= test_n_char) {  //is the current message long enough for this test?
+    if (compareStringInSerialBuff("QUEUE ",test_n_char)) {  //does the current message start this way
+      serial_read_ind = (serial_read_ind + test_n_char) % AT_PROCESSOR_N_BUFFER; //increment the reader index for the serial buffer
+      if (DEBUG_VIA_USB) { Serial.print("AT_Processor: recvd: SEND "); debugPrintMsgFromSerialBuff(); Serial.println();}
+      const bool flag_useTxQueue = true;
+      ret_val = bleSendFromSerialBuff(flag_useTxQueue); //must not have any carriage return characters in the payload (other than the trailing carriage return that concludes every message)
     }
   }
 
@@ -379,6 +464,17 @@ int AT_Processor::processSerialMessage(void) {
     }
   } 
 
+  //test for the verb "CLEAR_TX_QUEUE"
+   test_n_char = 14; //how long is "CLEAR_TX_QUEUE"
+  if (len >= test_n_char) {
+    if (compareStringInSerialBuff("RESET_TX_QUEUE",test_n_char)) {  //does the current message start this way
+      serial_read_ind = (serial_read_ind + test_n_char) % AT_PROCESSOR_N_BUFFER; //increment the reader index for the serial buffer
+      txQueue.reset();
+      sendSerialOkMessage(String(txQueue.getNumMsgs()) + " " + String(txQueue.getNumFreeBytesInQueue()));
+      ret_val = 0;
+    }
+  }  
+
   //test for the verb "SVCSETUP"
   test_n_char = 8; //how long is "SVCSETUP"
   if (len >= test_n_char) {
@@ -402,11 +498,26 @@ int AT_Processor::processSerialMessage(void) {
   }
 
   //send FAIL response, if none yet sent
-  if (ret_val == VERB_NOT_KNOWN) sendSerialFailMessage("VERB not known");
+  if (ret_val == VERB_NOT_KNOWN) sendSerialFailMessage("VERB not known: " + extractVerbFromSerialBuff());
 
   serial_read_ind = serial_write_ind;  //remove any remaining message
   return ret_val;
 }
+
+String AT_Processor::extractVerbFromSerialBuff(void) {
+  String verb_str;
+  int n = lengthSerialMessage();
+  if (n < 1) return verb_str;
+  int ind = serial_read_ind;  //where to start in the read buffer
+  for (int i=0; i < n; i++) {
+    if (serial_buff[ind] == ' ') return verb_str;
+    verb_str += serial_buff[ind];
+    ind++;
+    if (ind >= AT_PROCESSOR_N_BUFFER) ind = 0;  //wrap around the read buffer index, if necessary
+  }
+  return verb_str;
+}
+
 
 //returns true if the next character was a space
 bool AT_Processor::skipSpaceIfNextInBuffer(void) {
@@ -456,13 +567,13 @@ int AT_Processor::processSvcSetupMessageInSerialBuff(void) {
     if (err_code != 0) {
       String foo = "SVCSETUP failed to interpret Service UUID, err = ";
       foo += String(err_code);
-      sendSerialFailMessage(foo.c_str());
+      sendSerialFailMessage(foo);
       serial_read_ind = serial_write_ind;  
       return FORMAT_PROBLEM;
     }  //remove the message and return}
     err_code = setServiceUUID(ble_service_id, uuid_chars, len_uuid_chars);
     if (err_code != 0) { 
-      sendSerialFailMessage(("SVCSETUP failed to set Service UUID, err = " + String(err_code)).c_str());  
+      sendSerialFailMessage(("SVCSETUP failed to set Service UUID, err = " + String(err_code)));  
       serial_read_ind = serial_write_ind;   return OPERATION_FAILED; 
       }  //remove the message and return}
     sendSerialOkMessage(); return 0;
@@ -487,9 +598,9 @@ int AT_Processor::processSvcSetupMessageInSerialBuff(void) {
     serial_read_ind = (serial_read_ind + test_n_char) % AT_PROCESSOR_N_BUFFER; //increment the reader index for the serial buffer
     //get the value
     int err_code = getUUIDCharsFromBuffer(len_uuid_chars, uuid_chars);
-    if (err_code != 0) { sendSerialFailMessage(("SVCSETUP failed to interpret Characteristic UUID, err = " + String(err_code)).c_str());  serial_read_ind = serial_write_ind;  return FORMAT_PROBLEM; }  //remove the message and return}
+    if (err_code != 0) { sendSerialFailMessage(("SVCSETUP failed to interpret Characteristic UUID, err = " + String(err_code)));  serial_read_ind = serial_write_ind;  return FORMAT_PROBLEM; }  //remove the message and return}
     err_code = addCharacteristic(ble_service_id, uuid_chars, len_uuid_chars);
-    if (err_code != 0) { sendSerialFailMessage(("SVCSETUP failed to add Characteristic via UUID, err = " + String(err_code)).c_str());  serial_read_ind = serial_write_ind;  return OPERATION_FAILED; }  //remove the message and return}
+    if (err_code != 0) { sendSerialFailMessage(("SVCSETUP failed to add Characteristic via UUID, err = " + String(err_code)));  serial_read_ind = serial_write_ind;  return OPERATION_FAILED; }  //remove the message and return}
     sendSerialOkMessage(); return 0;
   }
 
@@ -532,6 +643,8 @@ int AT_Processor::processSvcSetupMessageInSerialBuff(void) {
     if (err_code != 0) { sendSerialFailMessage("SVCSETUP failed to set char_nbytes");  serial_read_ind = serial_write_ind;  return OPERATION_FAILED; }  //remove the message and return}
     sendSerialOkMessage(); return 0;
   }
+
+
 
   //send a FAIL message if none has been sent yet
   ret_val = FORMAT_PROBLEM;
@@ -709,6 +822,19 @@ int AT_Processor::processSetMessageInSerialBuff(void) {
     serial_read_ind = serial_write_ind;  //remove the message
   }
 
+  //look for parameter value of LEDMODE
+  test_n_char = 10+1; //length of "DELAY_MSEC="
+  if (compareStringInSerialBuff("DELAY_MSEC=",test_n_char)) {
+    serial_read_ind = (serial_read_ind + test_n_char) % AT_PROCESSOR_N_BUFFER; //increment the reader index for the serial buffer
+    ret_val = setQueueDelayFromSerialBuff();
+    if (ret_val == 0) {
+      sendSerialOkMessage();
+    } else {
+      sendSerialFailMessage("SET DELAY_MSEC failed");
+    }
+    serial_read_ind = serial_write_ind;  //remove the message
+  } 
+
   // serach for another command
   //   anything?
 
@@ -870,6 +996,76 @@ int AT_Processor::processGetMessageInSerialBuff(void) {
     } else {
       ret_val = FORMAT_PROBLEM;
       sendSerialFailMessage("GET VERSION had formatting problem");
+    }     
+    serial_read_ind = serial_write_ind;  //remove the message
+  }  
+
+    test_n_char = 13; //length of "CONN_INTERVAL"
+  if (compareStringInSerialBuff("CONN_INTERVAL",test_n_char)) {
+    int foo_ind = serial_read_ind+test_n_char;
+    while (foo_ind >= AT_PROCESSOR_N_BUFFER) foo_ind -= AT_PROCESSOR_N_BUFFER;
+    if ((foo_ind==serial_write_ind) || (serial_buff[foo_ind] == EOC)) {
+      ret_val = 0;
+      sendSerialOkMessage(String(getConnectionInterval_msec()));
+    } else {
+      ret_val = FORMAT_PROBLEM;
+      sendSerialFailMessage("GET CONN_INTERVAL had formatting problem");
+    }     
+    serial_read_ind = serial_write_ind;  //remove the message
+  }  
+
+  test_n_char = 14; //length of "LOG_OF_LAST_TX"
+  if (compareStringInSerialBuff("LOG_OF_LAST_TX",test_n_char)) {
+    int foo_ind = serial_read_ind+test_n_char;
+    while (foo_ind >= AT_PROCESSOR_N_BUFFER) foo_ind -= AT_PROCESSOR_N_BUFFER;
+    if ((foo_ind==serial_write_ind) || (serial_buff[foo_ind] == EOC)) {
+      ret_val = 0;
+      sendSerialOkMessage(String(txLog_numCalls) + " " + String(txLog_bytesLastGiven) + " " + String(txLog_bytesLastSent));
+    } else {
+      ret_val = FORMAT_PROBLEM;
+      sendSerialFailMessage("GET LOG_OF_LAST_TX had formatting problem");
+    }     
+    serial_read_ind = serial_write_ind;  //remove the message
+  }  
+
+  test_n_char = 10; //length of "DELAY_MSEC"
+  if (compareStringInSerialBuff("DELAY_MSEC",test_n_char)) {
+    int foo_ind = serial_read_ind+test_n_char;
+    while (foo_ind >= AT_PROCESSOR_N_BUFFER) foo_ind -= AT_PROCESSOR_N_BUFFER;
+    if ((foo_ind==serial_write_ind) || (serial_buff[foo_ind] == EOC)) {
+      ret_val = 0;
+      sendSerialOkMessage(String(txQueue_reqDelay_millis));
+    } else {
+      ret_val = FORMAT_PROBLEM;
+      sendSerialFailMessage("GET DELAY_MSEC had formatting problem");
+    }     
+    serial_read_ind = serial_write_ind;  //remove the message
+  }  
+
+  test_n_char = 18; //length of "TX_QUEUE_FREEBYTES"
+  if (compareStringInSerialBuff("TX_QUEUE_FREEBYTES",test_n_char)) {
+    int foo_ind = serial_read_ind+test_n_char;
+    while (foo_ind >= AT_PROCESSOR_N_BUFFER) foo_ind -= AT_PROCESSOR_N_BUFFER;
+    if ((foo_ind==serial_write_ind) || (serial_buff[foo_ind] == EOC)) {
+      ret_val = 0;
+      sendSerialOkMessage(String(txQueue.getNumFreeBytesInQueue()));
+    } else {
+      ret_val = FORMAT_PROBLEM;
+      sendSerialFailMessage("GET TX_QUEUE_FREEBYTES had formatting problem");
+    }     
+    serial_read_ind = serial_write_ind;  //remove the message
+  }  
+
+  test_n_char = 15; //length of "TX_QUEUE_N_MSGS"
+  if (compareStringInSerialBuff("TX_QUEUE_N_MSGS",test_n_char)) {
+    int foo_ind = serial_read_ind+test_n_char;
+    while (foo_ind >= AT_PROCESSOR_N_BUFFER) foo_ind -= AT_PROCESSOR_N_BUFFER;
+    if ((foo_ind==serial_write_ind) || (serial_buff[foo_ind] == EOC)) {
+      ret_val = 0;
+      sendSerialOkMessage(String(txQueue.getNumMsgs()));
+    } else {
+      ret_val = FORMAT_PROBLEM;
+      sendSerialFailMessage("GET TX_QUEUE_N_MSGS had formatting problem");
     }     
     serial_read_ind = serial_write_ind;  //remove the message
   }  
@@ -1041,9 +1237,56 @@ int AT_Processor::setLedModeFromSerialBuff(void) {
   return ret_val;
 }
 
+int AT_Processor::setQueueDelayFromSerialBuff(void) {
+  // the delay value in the string will be a one or two digit value immediately following the (already removed) equals sign
+  int ret_val = OPERATION_FAILED;      //default, assume this will end as an error
+  int read_ind = serial_read_ind;      //where are we in the buffer holding the received characters?
+  if ((lengthSerialMessage() > 0) && (serial_buff[read_ind]==' ')) read_ind++; //remove any leading whitespace
+  while (read_ind >= AT_PROCESSOR_N_BUFFER) read_ind -= AT_PROCESSOR_N_BUFFER; //wrap around if we've gone off the end of the circular buffer
+  if (lengthSerialMessage() >= 1) {  //do we have any characters reaminin in our message?
+    //get the one or two characters
+    char foo_char = serial_buff[read_ind];
+    if ((foo_char < '0') || (foo_char > '9')) return OPERATION_FAILED;
+    char digit_tens = '0';
+    char digit_ones = foo_char;
+    if (lengthSerialMessage() >= 2) {
+      if ((foo_char >= '0') && (foo_char <= '9')) {
+        digit_tens = digit_ones;
+        digit_ones = foo_char;
+      }
+    }
+    //interpret the two characters
+    int new_delay_msec = ((int)(digit_tens - '0'))*10 + (digit_ones - '0');
+    int err_val = setQueueDelay_msec(new_delay_msec);
+    if (err_val == 0) { flag_userSetQueueDelay = true;  return 0; }
+    return OPERATION_FAILED;
+  }
+  return ret_val;
+}
+
+//returns zero for success
+int AT_Processor::setQueueDelay_msec(const int new_delay_msec) {
+  if (new_delay_msec >= 0) {
+    txQueue_reqDelay_millis = new_delay_msec;
+    return 0;
+  }
+  return -1;
+}
+
+int AT_Processor::updateBleConnectionInterval_msec(const int new_conn_interval_msec) {
+  if (flag_userSetQueueDelay == false) {
+    return setQueueDelay_msec(new_conn_interval_msec + 1);
+  }
+  return 0;
+}
+
 //Send is for text-like data payloads to be sent via UART.  Cannot have a carriage return in the data payload.
 //Must still have a carriage return at the end of the serial buffer, though, marking the end of the overall message
-int AT_Processor::bleSendFromSerialBuff(void) {
+int AT_Processor::bleSendFromSerialBuff(void) { return bleSendFromSerialBuff(false); }
+int AT_Processor::bleSendFromSerialBuff(const bool flag_useTxQueue) {
+  //check to make sure that there's something to send
+  if (serial_read_ind == serial_write_ind) return NO_BYTES_SENT;  //should never happen?
+
   //copy the message from the circular buffer to the straight buffer
   size_t counter = 0;
   while (serial_read_ind != serial_write_ind) {
@@ -1053,13 +1296,23 @@ int AT_Processor::bleSendFromSerialBuff(void) {
     if (serial_read_ind >= AT_PROCESSOR_N_BUFFER) serial_read_ind = 0;
   }
 
-  //if BLE is connected, fire off the message
-  if (bleConnected) {
-    if (ble_ptr1) ble_ptr1->write(0, (const uint8_t *)BLEmessage, counter ); //characteristic ID 0
-    if (ble_ptr2) ble_ptr2->write((const uint8_t *)BLEmessage, counter );
-    return counter;
+  //is BLE connected?
+  if (!bleConnected) return NO_BLE_CONNECTION;
+
+  //are we queueing messages rather than sending immediate?
+  if (flag_useTxQueue) {
+    //queue the message
+    int error_value = txQueue.enqueue((uint8_t *)BLEmessage, counter);
+    if (error_value != 0) return TX_QUEUE_FULL;
+    return 0; //success!
   }
-  return NO_BLE_CONNECTION;
+
+  //Else, just send the packet
+  size_t bytes_sent = writeToBle((const uint8_t *)BLEmessage, counter);
+
+  //return
+  if (bytes_sent < 1) return NO_BYTES_SENT;
+  return 0;  //return 0 on success
 }
 
 void AT_Processor::sendSerialOkMessage(const char* reply_str) {
