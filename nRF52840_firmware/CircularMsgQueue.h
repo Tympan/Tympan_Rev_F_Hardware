@@ -1,8 +1,11 @@
 
 #pragma once
 
-#define QUEUE_LEN_BYTES 150000
-#define MAX_MSGS_QUEUED 500
+#define TOTAL_BYTES_TO_USE (150000)       // total RAM to use for the combination of the queue array and for the message_end_inds array
+#define TYPICAL_PAKCET_SIZE_BYTES 24      // typical length of a data packet from the Tympan to convey out via BLE
+#define STORAGE_BYTES_REQ_PER_PACKET (TYPICAL_PAKCET_SIZE_BYTES + (1*4))    //the packet payload plus an entry in the message_ind_inds array
+#define MAX_MSGS_QUEUED ((int)(TOTAL_BYTES_TO_USE/STORAGE_BYTES_REQ_PER_PACKET))
+#define QUEUE_LEN_BYTES (MAX_MSGS_QUEUED * TYPICAL_PAKCET_SIZE_BYTES)
 
 class CircularMessageQueue { 
   public:
@@ -25,7 +28,7 @@ class CircularMessageQueue {
     
     //circular buffer for the start/end of each message
     int msg_write = 0, msg_read = 0;
-    uint8_t message_end_inds[MAX_MSGS_QUEUED];
+    int message_end_inds[MAX_MSGS_QUEUED];
   
 
     //private methods
