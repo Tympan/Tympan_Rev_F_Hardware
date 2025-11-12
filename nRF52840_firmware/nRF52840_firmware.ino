@@ -136,6 +136,9 @@ void loop(void) {
   //Service out-going BLE comms that have been queued by the AT-style processor
   AT_interpreter.update(millis());
 
+  //periodically update the delay used for queued comms in case the BLE connection interval has changed
+  serviceBleQueueDelayViaBleConnInterval(millis());
+
   //service the LEDs
   serviceLEDs(millis());
 
@@ -180,6 +183,19 @@ void serviceGPIO(unsigned long curTime_millis) {
     lastUpdate_millis = curTime_millis;
   }
 } 
+
+void serviceBleQueueDelayViaBleConnInterval(unsigned long curTime_millis) {
+  static unsigned long lastUpdate_millis = 0;
+
+  if (curTime_millis < lastUpdate_millis) lastUpdate_millis = 0;  //handle time wrap-around
+  if ((curTime_millis - lastUpdate_millis) > 250UL) {  // how often to update
+    int conn_interval_msec = getConnectionInterval_msec();
+    if (conn_interval_msec > 0) AT_interpreter.updateBleConnectionInterval_msec(conn_interval_msec);
+    lastUpdate_millis = curTime_millis;
+  }
+
+} 
+
 
 // ////////////////////////////////////////////////////////////////////// 
 /*
