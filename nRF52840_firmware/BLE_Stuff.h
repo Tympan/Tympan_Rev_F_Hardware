@@ -37,6 +37,7 @@ boolean bleBegun = false;
 String uniqueID = "DEADBEEFCAFEDATE"; // [16]; // used to gather the 'serial number' of the chip
 char bleInChar;  // incoming BLE char
 BLEService *serviceToAdvertise = nullptr;
+int default_conn_interval_to_request_msec = 10; //any value greater than 1 (though 8 is probably the min?)
 
 //Create the nRF52 BLE elements (the firmware on the nRF BLE Hardware itself)
 BLEDfu            bledfu;  // Adafruit's built-in OTA DFU service
@@ -68,7 +69,8 @@ int getConnectionInterval_msec(void) {
   return (int)(((float)connection->getConnectionInterval()*1.25f) + 0.5f); //in looking at Adafruit docs, it looks like the units are 1.25msec...so I multiply by 1.25 to get the units I want
 }
 
-int setConnectionInerval_msec(int requested_msec) {
+
+int requestChangeToConnectionInterval_msec(int requested_msec) {
   //check the inputs
   if (requested_msec <= 0) return -1;
 
@@ -86,6 +88,23 @@ int setConnectionInerval_msec(int requested_msec) {
   return 0;
 }
 
+int setConnectionInterval_msec(int interval_msec) {
+  int ret_val = -1;  //assume fail
+
+  //check for valid inputs
+  if ((interval_msec < 1) || (interval_msec > 1999)) return ret_val;  //fail
+
+  //save the new value
+  default_conn_interval_to_request_msec = interval_msec;
+  ret_val = 0;  //at this point, we're a success, no matter what happens
+
+  //if there is an existing connection (which is checked inside this fucntion), change the current connection's interval
+  int foo_ret_val = requestChangeToConnectionInterval_msec(default_conn_interval_to_request_msec);
+
+  //return
+  return ret_val;
+}
+
 // callback invoked when central connects
 void connect_callback(uint16_t conn_handle)
 {
@@ -100,8 +119,7 @@ void connect_callback(uint16_t conn_handle)
   //Serial.print(F(", connection_interval (msec) =")); Serial.println(getConnectionInterval_msec());
 
   //try to change the connection interval to something shorter
-  int requested_msec = 10;
-  setConnectionInerval_msec(requested_msec);
+  requestChangeToConnectionInterval_msec(default_conn_interval_to_request_msec);
 
 }
 
@@ -194,13 +212,6 @@ void beginAllBleServices(int setup_config_id) {
       activated_service_presets[preset_id] = all_service_presets[preset_id];
     }
   }
-
-  // Can we speed up the connection interval?  I believe that this sets how often the phone/tablet will check in with 
-  // this BLE module to see if there is new data.  Prior to adding the line below (v0.5.0), I had been seeing 49 msec!
-  // This line is from Adafruit example throughput.ino: https://github.com/adafruit/Adafruit_nRF52_Arduino/blob/4a2d8dd5be9686b6580ed2249cae43972922572f/libraries/Bluefruit52Lib/examples/Peripheral/throughput/throughput.ino#L65
-  // Bluefruit.Periph.setConnInterval(6, 12); // The units are 1.25msec long, so these values actually represent min=7.5 to max=15 ms.
-  // NOV 11, 2025; This did not change the reported connection interval when connected to the Adafruit Bluefruit App.  Try adding it ot the individual service's begin() methods?
-
 
   //get which service to advertise
   setAdvertisingServiceToPresetById(service_preset_to_ble_advertise);

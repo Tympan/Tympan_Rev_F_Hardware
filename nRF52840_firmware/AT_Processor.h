@@ -49,6 +49,7 @@ extern err_t setCharacteristicName(const int ble_service_id, const int ble_char_
 extern err_t setCharacteristicProps(const int ble_service_id, const int ble_char_id, const uint8_t char_props);
 extern err_t setCharacteristicNBytes(const int ble_service_id, const int ble_char_id, const int n_bytes);
 extern int getConnectionInterval_msec(void);
+extern int setConnectionInterval_msec(const int interval_msec);
 
 //running on the nRF52, this interprets commands coming from the hardware serial and send replies out to the BLE
 #define AT_PROCESSOR_N_BUFFER 1024
@@ -61,7 +62,8 @@ class AT_Processor {
     virtual void addToSerialBuffer(char c);
     virtual int processSerialCharacter(char c);  //here's the main entry point to the AT message parsing
     virtual int processSerialCharacterAsBleMessage(char c);
-    virtual int lengthSerialMessage(void);
+    virtual int lengthSerialMessage(void) { return lengthSerialMessage(serial_read_ind); }
+    virtual int lengthSerialMessage(int read_ind);
     virtual int processSerialMessage(void);
 
     virtual void update(unsigned long cur_millis); //call this from the main loop() to service queued-up tx messages or whatever
@@ -110,7 +112,9 @@ class AT_Processor {
     //methods corresponding to the detailed actions that can be taken
     bool compareStringInSerialBuff(const char* test_str, int n);
     bool skipSpaceIfNextInBuffer(void);
-    String extractVerbFromSerialBuff(void);
+    String extractVerbFromSerialBuffer(void);
+    String copyStringFromSerialBuffer(int start_ind);
+    int getIntValueFromSerialBuff(int start_ind, int *out_value);  //returns zero if successful
 
     int processSvcSetupMessageInSerialBuff(void);  
     int processBeginMessageInSerialBuff(void);
@@ -122,6 +126,7 @@ class AT_Processor {
     int setAdvertisingFromSerialBuff(void);
     int setAdvServiceIdFromSerialBuff(void);
     int setLedModeFromSerialBuff(void);
+    int setConnectionIntervalFromSerialBuff(void);
     int setQueueDelayFromSerialBuff(void);
     int bleSendFromSerialBuff(void);
     int bleSendFromSerialBuff(const bool flag_useTxQueue);
@@ -374,12 +379,12 @@ int AT_Processor::processSerialCharacterAsBleMessage(char c) {
   return 0;
 }
 
-int AT_Processor::lengthSerialMessage(void) {
+int AT_Processor::lengthSerialMessage(int start_ind) {
   int len = 0;
-  if (serial_read_ind > serial_write_ind) {
-    len = ((AT_PROCESSOR_N_BUFFER-1) - serial_read_ind) + serial_write_ind;
+  if (start_ind > serial_write_ind) {
+    len = ((AT_PROCESSOR_N_BUFFER-1) - start_ind) + serial_write_ind;
   } else {
-    len = serial_write_ind - serial_read_ind;
+    len = serial_write_ind - start_ind;
   }
   return len;
 }
@@ -498,13 +503,13 @@ int AT_Processor::processSerialMessage(void) {
   }
 
   //send FAIL response, if none yet sent
-  if (ret_val == VERB_NOT_KNOWN) sendSerialFailMessage("VERB not known: " + extractVerbFromSerialBuff());
+  if (ret_val == VERB_NOT_KNOWN) sendSerialFailMessage("VERB not known. given: " + copyStringFromSerialBuffer(serial_read_ind));
 
   serial_read_ind = serial_write_ind;  //remove any remaining message
   return ret_val;
 }
 
-String AT_Processor::extractVerbFromSerialBuff(void) {
+String AT_Processor::extractVerbFromSerialBuffer(void) {
   String verb_str;
   int n = lengthSerialMessage();
   if (n < 1) return verb_str;
@@ -518,6 +523,18 @@ String AT_Processor::extractVerbFromSerialBuff(void) {
   return verb_str;
 }
 
+String AT_Processor::copyStringFromSerialBuffer(int start_ind) {
+  String str;
+  int n = lengthSerialMessage(start_ind);
+  if (n < 1) return str;
+  int ind = start_ind;  //where to start in the read buffer
+  for (int i=0; i < n; i++) {
+    str += serial_buff[ind];
+    ind++;
+    if (ind >= AT_PROCESSOR_N_BUFFER) ind = 0;  //wrap around the read buffer index, if necessary
+  }
+  return str;
+}
 
 //returns true if the next character was a space
 bool AT_Processor::skipSpaceIfNextInBuffer(void) {
@@ -822,6 +839,18 @@ int AT_Processor::processSetMessageInSerialBuff(void) {
     serial_read_ind = serial_write_ind;  //remove the message
   }
 
+  test_n_char = 13+1; //length of "CONN_INTERVAL="
+  if (compareStringInSerialBuff("CONN_INTERVAL=",test_n_char)) {
+    serial_read_ind = (serial_read_ind + test_n_char) % AT_PROCESSOR_N_BUFFER; //increment the reader index for the serial buffer
+    ret_val = setConnectionIntervalFromSerialBuff();
+    if (ret_val == 0) {
+      sendSerialOkMessage();
+    } else {
+      sendSerialFailMessage("SET CONN_INTERVAL failed. given: " + copyStringFromSerialBuffer(serial_read_ind));
+    }
+    serial_read_ind = serial_write_ind;  //remove the message
+  }
+
   //look for parameter value of LEDMODE
   test_n_char = 10+1; //length of "DELAY_MSEC="
   if (compareStringInSerialBuff("DELAY_MSEC=",test_n_char)) {
@@ -830,7 +859,7 @@ int AT_Processor::processSetMessageInSerialBuff(void) {
     if (ret_val == 0) {
       sendSerialOkMessage();
     } else {
-      sendSerialFailMessage("SET DELAY_MSEC failed");
+      sendSerialFailMessage("SET DELAY_MSEC failed. given: " + copyStringFromSerialBuffer(serial_read_ind));
     }
     serial_read_ind = serial_write_ind;  //remove the message
   } 
@@ -847,7 +876,7 @@ int AT_Processor::processSetMessageInSerialBuff(void) {
   }
 
   //send a FAIL message if none has been sent yet
-  if (ret_val == PARAMETER_NOT_KNOWN) sendSerialFailMessage("SET parameter not known");
+  if (ret_val == PARAMETER_NOT_KNOWN) sendSerialFailMessage("SET parameter not known. given: " + copyStringFromSerialBuffer(serial_read_ind));
 
   serial_read_ind = serial_write_ind;  //remove the message
   return ret_val;
@@ -880,7 +909,7 @@ int AT_Processor::processGetMessageInSerialBuff(void) {
       sendSerialFailMessage("GET BAUDRATE not implemented yet");
     } else {
       ret_val = FORMAT_PROBLEM;
-      sendSerialFailMessage("GET BAUDRATE had formatting problem");
+      sendSerialFailMessage("GET BAUDRATE format problem");
     }     
     serial_read_ind = serial_write_ind;  //remove the message
   }
@@ -904,7 +933,7 @@ int AT_Processor::processGetMessageInSerialBuff(void) {
         }
     } else {
       ret_val = 2;
-      sendSerialFailMessage("GET NAME had formatting problem");
+      sendSerialFailMessage("GET NAME format problem. given: " + copyStringFromSerialBuffer(serial_read_ind));
       //serial_read_ind = serial_write_ind;  //remove the message ... INCORRECT LOCAITON FOR THIS!  (v0.4.0 and earlier)
     }
     serial_read_ind = serial_write_ind;  //remove the message ... CORRECTED LOCATION (v.0.4.1 and later)
@@ -919,7 +948,7 @@ int AT_Processor::processGetMessageInSerialBuff(void) {
       sendSerialFailMessage("GET RFSTATE not implemented yet");
     } else {
       ret_val = FORMAT_PROBLEM;
-      sendSerialFailMessage("GET RFSTATE had formatting problem");
+      sendSerialFailMessage("GET RFSTATE format problem");
     }     
     serial_read_ind = serial_write_ind;  //remove the message
   }  
@@ -933,7 +962,7 @@ int AT_Processor::processGetMessageInSerialBuff(void) {
       sendSerialOkMessage((Bluefruit.Advertising.isRunning()) ? "TRUE" : "FALSE");
     } else {
       ret_val = FORMAT_PROBLEM;
-      sendSerialFailMessage("GET ADVERTISING had formatting problem");
+      sendSerialFailMessage("GET ADVERTISING format problem. given: " + copyStringFromSerialBuffer(serial_read_ind));
     }     
     serial_read_ind = serial_write_ind;  //remove the message
   } 
@@ -949,7 +978,7 @@ int AT_Processor::processGetMessageInSerialBuff(void) {
       if (DEBUG_VIA_USB) Serial.println("GET ADVERT_SERVICE_ID returned " + String(service_preset_to_ble_advertise));
     } else {
       ret_val = FORMAT_PROBLEM;
-      sendSerialFailMessage("GET ADVERT_SERVICE_ID had formatting problem");
+      sendSerialFailMessage("GET ADVERT_SERVICE_ID format problem. given: " + copyStringFromSerialBuffer(serial_read_ind));
     }     
     serial_read_ind = serial_write_ind;  //remove the message
   } 
@@ -967,7 +996,7 @@ int AT_Processor::processGetMessageInSerialBuff(void) {
       }
     } else {
       ret_val = FORMAT_PROBLEM;
-      sendSerialFailMessage("GET LEDMODE had formatting problem");
+      sendSerialFailMessage("GET LEDMODE format problem. given: " + copyStringFromSerialBuffer(serial_read_ind));
     }     
     serial_read_ind = serial_write_ind;  //remove the message
   }  
@@ -981,7 +1010,7 @@ int AT_Processor::processGetMessageInSerialBuff(void) {
       sendSerialOkMessage((Bluefruit.connected()) ? "TRUE" : "FALSE");
     } else {
       ret_val = FORMAT_PROBLEM;
-      sendSerialFailMessage("GET CONNECTED had formatting problem");
+      sendSerialFailMessage("GET CONNECTED format problem. given: " + copyStringFromSerialBuffer(serial_read_ind));
     }     
     serial_read_ind = serial_write_ind;  //remove the message
   }  
@@ -995,12 +1024,13 @@ int AT_Processor::processGetMessageInSerialBuff(void) {
       sendSerialOkMessage(versionString);
     } else {
       ret_val = FORMAT_PROBLEM;
-      sendSerialFailMessage("GET VERSION had formatting problem");
+
+      sendSerialFailMessage("GET VERSION format problem. given: " + copyStringFromSerialBuffer(serial_read_ind));
     }     
     serial_read_ind = serial_write_ind;  //remove the message
   }  
 
-    test_n_char = 13; //length of "CONN_INTERVAL"
+  test_n_char = 13; //length of "CONN_INTERVAL"
   if (compareStringInSerialBuff("CONN_INTERVAL",test_n_char)) {
     int foo_ind = serial_read_ind+test_n_char;
     while (foo_ind >= AT_PROCESSOR_N_BUFFER) foo_ind -= AT_PROCESSOR_N_BUFFER;
@@ -1009,7 +1039,7 @@ int AT_Processor::processGetMessageInSerialBuff(void) {
       sendSerialOkMessage(String(getConnectionInterval_msec()));
     } else {
       ret_val = FORMAT_PROBLEM;
-      sendSerialFailMessage("GET CONN_INTERVAL had formatting problem");
+      sendSerialFailMessage("GET CONN_INTERVAL format problem. given: " + copyStringFromSerialBuffer(serial_read_ind));;
     }     
     serial_read_ind = serial_write_ind;  //remove the message
   }  
@@ -1023,7 +1053,7 @@ int AT_Processor::processGetMessageInSerialBuff(void) {
       sendSerialOkMessage(String(txLog_numCalls) + " " + String(txLog_bytesLastGiven) + " " + String(txLog_bytesLastSent));
     } else {
       ret_val = FORMAT_PROBLEM;
-      sendSerialFailMessage("GET LOG_OF_LAST_TX had formatting problem");
+      sendSerialFailMessage("GET LOG_OF_LAST_TX format problem. given: " + copyStringFromSerialBuffer(serial_read_ind));;
     }     
     serial_read_ind = serial_write_ind;  //remove the message
   }  
@@ -1037,7 +1067,7 @@ int AT_Processor::processGetMessageInSerialBuff(void) {
       sendSerialOkMessage(String(txQueue_reqDelay_millis));
     } else {
       ret_val = FORMAT_PROBLEM;
-      sendSerialFailMessage("GET DELAY_MSEC had formatting problem");
+      sendSerialFailMessage("GET DELAY_MSEC format problem. given: " + copyStringFromSerialBuffer(serial_read_ind));;
     }     
     serial_read_ind = serial_write_ind;  //remove the message
   }  
@@ -1051,7 +1081,7 @@ int AT_Processor::processGetMessageInSerialBuff(void) {
       sendSerialOkMessage(String(txQueue.getNumFreeBytesInQueue()));
     } else {
       ret_val = FORMAT_PROBLEM;
-      sendSerialFailMessage("GET TX_QUEUE_FREEBYTES had formatting problem");
+      sendSerialFailMessage("GET TX_QUEUE_FREEBYTES format problem. given: " + copyStringFromSerialBuffer(serial_read_ind));;
     }     
     serial_read_ind = serial_write_ind;  //remove the message
   }  
@@ -1065,7 +1095,7 @@ int AT_Processor::processGetMessageInSerialBuff(void) {
       sendSerialOkMessage(String(txQueue.getNumMsgs()));
     } else {
       ret_val = FORMAT_PROBLEM;
-      sendSerialFailMessage("GET TX_QUEUE_N_MSGS had formatting problem");
+      sendSerialFailMessage("GET TX_QUEUE_N_MSGS format problem. given: " + copyStringFromSerialBuffer(serial_read_ind));;
     }     
     serial_read_ind = serial_write_ind;  //remove the message
   }  
@@ -1089,7 +1119,7 @@ int AT_Processor::processGetMessageInSerialBuff(void) {
 //returns OPERATION_FAILED if failed
 int AT_Processor::setBeginFromSerialBuff(void) {
   int ret_val = OPERATION_FAILED;
-  int read_ind = serial_read_ind;
+  //int read_ind = serial_read_ind;
   char new_val = '1';  
   if (lengthSerialMessage() > 0) if (serial_buff[serial_read_ind] == ' ') serial_read_ind++;  //skip over a single space, if it exists
   if (lengthSerialMessage() > 0) new_val = serial_buff[serial_read_ind]; //cheating, assumes only 1 character
@@ -1223,9 +1253,9 @@ int AT_Processor::setAdvServiceIdFromSerialBuff(void) {
 int AT_Processor::setLedModeFromSerialBuff(void) {
   int ret_val = OPERATION_FAILED;
   int read_ind = serial_read_ind;
-  if ((lengthSerialMessage() > 0) && (serial_buff[read_ind]==' ')) read_ind++; //remove leading whitespace
+  if ((lengthSerialMessage(read_ind) > 0) && (serial_buff[read_ind]==' ')) read_ind++; //remove leading whitespace
   while (read_ind >= AT_PROCESSOR_N_BUFFER) read_ind -= AT_PROCESSOR_N_BUFFER;
-  if (lengthSerialMessage() >= 1) {
+  if (lengthSerialMessage(read_ind) >= 1) {
     if (serial_buff[read_ind]=='0') {
       led_control.disableLEDs();
       ret_val = 0;
@@ -1237,32 +1267,66 @@ int AT_Processor::setLedModeFromSerialBuff(void) {
   return ret_val;
 }
 
-int AT_Processor::setQueueDelayFromSerialBuff(void) {
-  // the delay value in the string will be a one or two digit value immediately following the (already removed) equals sign
+
+int AT_Processor::getIntValueFromSerialBuff(int start_ind, int *out_value) {
   int ret_val = OPERATION_FAILED;      //default, assume this will end as an error
-  int read_ind = serial_read_ind;      //where are we in the buffer holding the received characters?
-  if ((lengthSerialMessage() > 0) && (serial_buff[read_ind]==' ')) read_ind++; //remove any leading whitespace
-  while (read_ind >= AT_PROCESSOR_N_BUFFER) read_ind -= AT_PROCESSOR_N_BUFFER; //wrap around if we've gone off the end of the circular buffer
-  if (lengthSerialMessage() >= 1) {  //do we have any characters reaminin in our message?
-    //get the one or two characters
-    char foo_char = serial_buff[read_ind];
-    if ((foo_char < '0') || (foo_char > '9')) return OPERATION_FAILED;
-    char digit_tens = '0';
-    char digit_ones = foo_char;
-    if (lengthSerialMessage() >= 2) {
-      if ((foo_char >= '0') && (foo_char <= '9')) {
-        digit_tens = digit_ones;
-        digit_ones = foo_char;
-      }
-    }
-    //interpret the two characters
-    int new_delay_msec = ((int)(digit_tens - '0'))*10 + (digit_ones - '0');
-    int err_val = setQueueDelay_msec(new_delay_msec);
-    if (err_val == 0) { flag_userSetQueueDelay = true;  return 0; }
-    return OPERATION_FAILED;
+  int read_ind = start_ind;           //where are we in the buffer holding the received characters?
+  if ((lengthSerialMessage(read_ind) > 0) && (serial_buff[read_ind]==' ')) read_ind++; //remove any leading whitespace
+  read_ind = read_ind % AT_PROCESSOR_N_BUFFER; //wrap around if we've gone off the end of the circular buffer
+  
+  //parse through the characters looking for any sort of whitespace termination (or the end of the msg)
+  int tmp_value = 0;
+  while ((lengthSerialMessage(read_ind)  > 0) && (serial_buff[read_ind] >= '0') && (serial_buff[read_ind] <= '9')) {
+    int new_digit = serial_buff[read_ind] - '0';       //extract the new digit
+    tmp_value = tmp_value*10 + new_digit;            //update our running output value
+    read_ind = (read_ind+1) % AT_PROCESSOR_N_BUFFER;   //inrement and wrap
+    ret_val = 0;  //at this point, a numeral has been received, so we'll assume that this function is successful
   }
+
+  //prepare to return
+  *out_value = tmp_value;
   return ret_val;
 }
+
+int AT_Processor::setConnectionIntervalFromSerialBuff(void) {
+  // the delay value in the string will be a one or two digit value immediately following the (already removed) equals sign
+  int err_val = OPERATION_FAILED;      //default, assume this will end as an error
+  int new_value_msec = 0;
+
+  // try to interpret an integer from the characters in the serial buffer
+  err_val = getIntValueFromSerialBuff(serial_read_ind, &new_value_msec);
+
+  // if we got an error, return early
+  if (err_val != 0) return err_val;
+
+  //Apprently, it was successful, so use the new value
+  int local_err_val = setConnectionInterval_msec(new_value_msec);
+  if (local_err_val == 0) { return 0; }     //success!
+
+  //if we get here, we've failed
+  return OPERATION_FAILED;
+}
+
+
+int AT_Processor::setQueueDelayFromSerialBuff(void) {
+  // the delay value in the string will be a one or two digit value immediately following the (already removed) equals sign
+  int err_val = OPERATION_FAILED;      //default, assume this will end as an error
+  int new_delay_msec = 0;
+
+  // try to interpret an integer from the characters in the serial buffer
+  err_val = getIntValueFromSerialBuff(serial_read_ind, &new_delay_msec);
+
+  // if we got an error, return early
+  if (err_val != 0) return err_val;
+
+  //Apprently, it was successful, so use the new value
+  int local_err_val = setQueueDelay_msec(new_delay_msec);
+  if (local_err_val == 0) { flag_userSetQueueDelay = true;  return 0; }     //success!
+
+  //if we get here, we've failed
+  return OPERATION_FAILED;
+}
+ 
 
 //returns zero for success
 int AT_Processor::setQueueDelay_msec(const int new_delay_msec) {
@@ -1369,6 +1433,7 @@ int AT_Processor::getStringFromBuffer(String &out_string) {
   return 0; //no error
 }
 
+//Using the current read_ind in the buffer, ges a single value buffer
 int AT_Processor::getValueFromBuffer(int *out_value) {
   if (lengthSerialMessage() == 0) return 1;  //return error.  no data to interpret
   int tmp_value = 0;
