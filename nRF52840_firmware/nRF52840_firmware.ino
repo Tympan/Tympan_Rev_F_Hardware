@@ -98,6 +98,7 @@ void setup(void) {
   //start the nRF's UART serial port that is physically connected to a Tympan or other microcrontroller (if used)
   Serial1.setPins(0,1);   //our nRF wiring uses Pin0 for RX and Pin1 for TX
   Serial1.begin(115200);  
+  //Serial1.begin(115200, SERIAL_8N1, 0,1,9,10);
   delay(500);
   while (Serial1.available()) Serial1.read();  //clear UART buffer
 

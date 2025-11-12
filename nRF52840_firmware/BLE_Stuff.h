@@ -162,6 +162,25 @@ void serialEvent(HardwareSerial *serial_from_tympan) { //for the nRF firmware, s
     }
  }
 
+bool checkSerial1OverrunFlag(void) {
+  // Check if the OVERRUN bit is set in the ERRORSRC register
+  bool overrun = (NRF_UARTE0->ERRORSRC & UARTE_ERRORSRC_OVERRUN_Msk); //note: NRF_UARTE0 is assumed to be what Serial1 uses, but I'm not sure
+  
+  return overrun;
+}
+void clearSerial1OverrunFlag(void) {
+  //note: NRF_UARTE0 is assumed to be what Serial1 uses, but I'm not sure
+  if (NRF_UARTE0->ERRORSRC & UARTE_ERRORSRC_OVERRUN_Msk) { //does the bit indicate an overrun warning that needs to be cleared?
+    // Clear the error flag
+    NRF_UARTE0->ERRORSRC = UARTE_ERRORSRC_OVERRUN_Msk;
+    
+    // Note: in some driver implementations, simply clearing the flag is not enough
+    // to resume reception; the UARTE might need to be reinitialized or specific 
+    // tasks/events might need to be re-triggered. This depends on the specific 
+    // driver/SDK version being used by the Adafruit Arduino core.
+  }
+}
+
 bool enablePresetServiceById(int preset_id, bool enable) {
   if ((preset_id > 0) && (preset_id < MAX_N_PRESET_SERVICES)) {  //be sure to exclude preset_id 0 (never disable preset_id 0 because it's the DFU)
     return flag_activateServicePreset[preset_id] = enable;

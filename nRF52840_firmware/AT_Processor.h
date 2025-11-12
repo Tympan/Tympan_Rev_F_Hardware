@@ -34,6 +34,8 @@ extern bool bleBegun;
 extern bool bleConnected;
 extern char BLEmessage[];
 extern int service_preset_to_ble_advertise;
+extern bool checkSerial1OverrunFlag(void); //in BLE_Stuff.h
+extern void clearSerial1OverrunFlag(void); //in BLE_Stuff.h
 extern void setMacAddress(char *);
 extern void startAdv(void);
 extern void stopAdv(void);
@@ -52,7 +54,7 @@ extern int getConnectionInterval_msec(void);
 extern int setConnectionInterval_msec(const int interval_msec);
 
 //running on the nRF52, this interprets commands coming from the hardware serial and send replies out to the BLE
-#define AT_PROCESSOR_N_BUFFER 1024
+#define AT_PROCESSOR_N_BUFFER (1024)
 class AT_Processor {
   public:
     AT_Processor(BLEUart_Tympan *_bleuart1, HardwareSerial *_ser_ptr) : ble_ptr1(_bleuart1) , serial_ptr(_ser_ptr) {}
@@ -70,6 +72,8 @@ class AT_Processor {
 
     virtual int updateBleConnectionInterval_msec(const int conn_interval_msec);  //returns zero for success
     virtual int setQueueDelay_msec(const int delay_msec);  //returns zero for success
+    virtual int getNumRxATBufferOverflows(void) const { return numRxSerialBufferOverflows; }
+    virtual void clearNumRxATBufferOverflows(void)  {  numRxSerialBufferOverflows = 0; }
     
   protected:
     BLEUart_Tympan *ble_ptr1 = NULL;
@@ -95,8 +99,9 @@ class AT_Processor {
 
     //circular buffer for reading from Serial from Tympan
     char serial_buff[AT_PROCESSOR_N_BUFFER];
-    int serial_read_ind = 0;
-    int serial_write_ind = 0;
+    int32_t serial_read_ind = 0;
+    int32_t serial_write_ind = 0;
+    int numRxSerialBufferOverflows = 0;
 
     //circular buffer for outgoing BLE payloads
     CircularMessageQueue txQueue;
@@ -112,7 +117,7 @@ class AT_Processor {
     //methods corresponding to the detailed actions that can be taken
     bool compareStringInSerialBuff(const char* test_str, int n);
     bool skipSpaceIfNextInBuffer(void);
-    String extractVerbFromSerialBuffer(void);
+    String copyVerbFromSerialBuffer(void);
     String copyStringFromSerialBuffer(int start_ind);
     int getIntValueFromSerialBuff(int start_ind, int *out_value);  //returns zero if successful
 
@@ -188,6 +193,8 @@ size_t AT_Processor::writeToBle(const uint8_t *this_msg, const int act_msg_len) 
   return bytes_sent;
 }
 
+const int max_tmp_msg_len = AT_PROCESSOR_N_BUFFER;
+uint8_t tmp_msg[AT_PROCESSOR_N_BUFFER]; // temp buffer that will be needed a lot (if one uses "QUEUE")
 void AT_Processor::update(unsigned long cur_millis) {
   //are there messages queued up?
   if (txQueue.getNumMsgs() <= 0) return;  //no messages to relay
@@ -197,12 +204,10 @@ void AT_Processor::update(unsigned long cur_millis) {
   if (cur_millis < (txQueue_lastTX_millis + txQueue_reqDelay_millis)) return;  //not ready yet
 
   //get the message
-  const int max_msg_len = AT_PROCESSOR_N_BUFFER;
-  uint8_t this_msg[max_msg_len];
   int act_msg_len=0;
-  int err_code = txQueue.dequeue(&(this_msg[0]), &act_msg_len, max_msg_len);
+  int err_code = txQueue.dequeue(&(tmp_msg[0]), &act_msg_len, max_tmp_msg_len);
     
-  //what happens if we failed to get the message?
+  //what happens if we failed to retrieve the message for some reason?
   if (err_code != 0) {
     //Serial.print("AT_Processor: update: *** ERROR ***: Queued message too long for given array!");
     txQueue.incrementToReadNextMsg();  //if the message was too long, it won't have cleared it (assuming you might want to try again).  Instead, let's just clear it.
@@ -210,16 +215,18 @@ void AT_Processor::update(unsigned long cur_millis) {
   }
 
   //transmit the message
-  size_t bytes_sent = writeToBle((const uint8_t *)this_msg, act_msg_len);
+  size_t bytes_sent = writeToBle(tmp_msg, act_msg_len);
   
   //note the time so that we can pace ourselves for the next time
   txQueue_lastTX_millis = cur_millis;
+  if ((txQueue_lastTX_millis + txQueue_reqDelay_millis) < txQueue_lastTX_millis) txQueue_lastTX_millis = 0; //handle rare edge case regarding timing near the point of wrap-around of milis datatype
 }
 
 void AT_Processor::addToSerialBuffer(char c) {
   serial_buff[serial_write_ind] = c; 
   serial_write_ind++;
   if (serial_write_ind >= AT_PROCESSOR_N_BUFFER) serial_write_ind = 0;  //wrap around
+  if (serial_write_ind == serial_read_ind) numRxSerialBufferOverflows++;
 }
 
 char AT_Processor::getFirstCharInBuffer(void) {
@@ -382,7 +389,7 @@ int AT_Processor::processSerialCharacterAsBleMessage(char c) {
 int AT_Processor::lengthSerialMessage(int start_ind) {
   int len = 0;
   if (start_ind > serial_write_ind) {
-    len = ((AT_PROCESSOR_N_BUFFER-1) - start_ind) + serial_write_ind;
+    len = AT_PROCESSOR_N_BUFFER - start_ind + serial_write_ind;
   } else {
     len = serial_write_ind - start_ind;
   }
@@ -421,7 +428,7 @@ int AT_Processor::processSerialMessage(void) {
   if (len >= test_n_char) {  //is the current message long enough for this test?
     if (compareStringInSerialBuff("QUEUE ",test_n_char)) {  //does the current message start this way
       serial_read_ind = (serial_read_ind + test_n_char) % AT_PROCESSOR_N_BUFFER; //increment the reader index for the serial buffer
-      if (DEBUG_VIA_USB) { Serial.print("AT_Processor: recvd: SEND "); debugPrintMsgFromSerialBuff(); Serial.println();}
+      if (DEBUG_VIA_USB) { Serial.print("AT_Processor: recvd: QUEUE "); debugPrintMsgFromSerialBuff(); Serial.println();}
       const bool flag_useTxQueue = true;
       ret_val = bleSendFromSerialBuff(flag_useTxQueue); //must not have any carriage return characters in the payload (other than the trailing carriage return that concludes every message)
     }
@@ -509,7 +516,7 @@ int AT_Processor::processSerialMessage(void) {
   return ret_val;
 }
 
-String AT_Processor::extractVerbFromSerialBuffer(void) {
+String AT_Processor::copyVerbFromSerialBuffer(void) {
   String verb_str;
   int n = lengthSerialMessage();
   if (n < 1) return verb_str;
@@ -839,6 +846,19 @@ int AT_Processor::processSetMessageInSerialBuff(void) {
     serial_read_ind = serial_write_ind;  //remove the message
   }
 
+  //look for parameter value of BUFF_OVERFLOWS
+  test_n_char = 14+1; //length of "BUFF_OVERFLOWS="
+  if (compareStringInSerialBuff("BUFF_OVERFLOWS=",test_n_char)) {
+    serial_read_ind = (serial_read_ind + test_n_char) % AT_PROCESSOR_N_BUFFER; //increment the reader index for the serial buffer
+    //don't bother looking for an argument, just reset all the applicable counters
+    clearNumRxATBufferOverflows();
+    clearSerial1OverrunFlag();
+    sendSerialOkMessage();
+    ret_val = 0;  //always succeeds
+    serial_read_ind = serial_write_ind;  //remove the message
+  }
+
+
   test_n_char = 13+1; //length of "CONN_INTERVAL="
   if (compareStringInSerialBuff("CONN_INTERVAL=",test_n_char)) {
     serial_read_ind = (serial_read_ind + test_n_char) % AT_PROCESSOR_N_BUFFER; //increment the reader index for the serial buffer
@@ -902,8 +922,7 @@ int AT_Processor::processGetMessageInSerialBuff(void) {
 
   test_n_char = 8; //length of "BAUDRATE"
   if (compareStringInSerialBuff("BAUDRATE",test_n_char)) {
-    int foo_ind = serial_read_ind+test_n_char;
-    while (foo_ind >= AT_PROCESSOR_N_BUFFER) foo_ind -= AT_PROCESSOR_N_BUFFER;
+    int foo_ind = (serial_read_ind+test_n_char) % AT_PROCESSOR_N_BUFFER;
     if ((foo_ind==serial_write_ind) || (serial_buff[foo_ind] == EOC)) {
       ret_val = NOT_IMPLEMENTED_YET;
       sendSerialFailMessage("GET BAUDRATE not implemented yet");
@@ -916,8 +935,7 @@ int AT_Processor::processGetMessageInSerialBuff(void) {
 
   test_n_char = 4; //length of "NAME"
   if (compareStringInSerialBuff("NAME",test_n_char)) {
-    int foo_ind = serial_read_ind+test_n_char;
-    while (foo_ind >= AT_PROCESSOR_N_BUFFER) foo_ind -= AT_PROCESSOR_N_BUFFER;
+    int foo_ind = (serial_read_ind+test_n_char) % AT_PROCESSOR_N_BUFFER;
     if ((foo_ind==serial_write_ind) || (serial_buff[foo_ind] == EOC)) {
         //get the current BLE name 
         static const uint16_t n_len = 64;
@@ -941,8 +959,7 @@ int AT_Processor::processGetMessageInSerialBuff(void) {
 
   test_n_char = 7; //length of "RFSTATE"
   if (compareStringInSerialBuff("RFSTATE",test_n_char)) {
-    int foo_ind = serial_read_ind+test_n_char;
-    while (foo_ind >= AT_PROCESSOR_N_BUFFER) foo_ind -= AT_PROCESSOR_N_BUFFER;
+    int foo_ind = (serial_read_ind+test_n_char) % AT_PROCESSOR_N_BUFFER;
     if ((foo_ind==serial_write_ind) || (serial_buff[foo_ind] == EOC)) {
       ret_val = NOT_IMPLEMENTED_YET;
       sendSerialFailMessage("GET RFSTATE not implemented yet");
@@ -955,8 +972,7 @@ int AT_Processor::processGetMessageInSerialBuff(void) {
 
   test_n_char = 11; //length of "ADVERTISING"
   if (compareStringInSerialBuff("ADVERTISING",test_n_char)) {
-    int foo_ind = serial_read_ind+test_n_char;
-    while (foo_ind >= AT_PROCESSOR_N_BUFFER) foo_ind -= AT_PROCESSOR_N_BUFFER;
+    int foo_ind = (serial_read_ind+test_n_char) % AT_PROCESSOR_N_BUFFER;
     if ((foo_ind==serial_write_ind) || (serial_buff[foo_ind] == EOC)) {
       ret_val = 0;
       sendSerialOkMessage((Bluefruit.Advertising.isRunning()) ? "TRUE" : "FALSE");
@@ -969,8 +985,7 @@ int AT_Processor::processGetMessageInSerialBuff(void) {
 
   test_n_char = 17; //length of "ADVERT_SERVICE_ID"
   if (compareStringInSerialBuff("ADVERT_SERVICE_ID",test_n_char)) {
-    int foo_ind = serial_read_ind+test_n_char;
-    while (foo_ind >= AT_PROCESSOR_N_BUFFER) foo_ind -= AT_PROCESSOR_N_BUFFER;
+    int foo_ind = (serial_read_ind+test_n_char) % AT_PROCESSOR_N_BUFFER;
     if ((foo_ind==serial_write_ind) || (serial_buff[foo_ind] == EOC)) {
       ret_val = 0;
       char reply[1]={(char)(service_preset_to_ble_advertise + (int)'0')};  //convert to character than to c-string
@@ -985,8 +1000,7 @@ int AT_Processor::processGetMessageInSerialBuff(void) {
 
   test_n_char = 7; //length of "LEDMODE"
   if (compareStringInSerialBuff("LEDMODE",test_n_char)) {
-    int foo_ind = serial_read_ind+test_n_char;
-    while (foo_ind >= AT_PROCESSOR_N_BUFFER) foo_ind -= AT_PROCESSOR_N_BUFFER;
+    int foo_ind = (serial_read_ind+test_n_char) % AT_PROCESSOR_N_BUFFER;
     if ((foo_ind==serial_write_ind) || (serial_buff[foo_ind] == EOC)) {
       ret_val = 0;
       if (led_control.ledToFade==0) {
@@ -1003,8 +1017,7 @@ int AT_Processor::processGetMessageInSerialBuff(void) {
 
   test_n_char = 9; //length of "CONNECTED"
   if (compareStringInSerialBuff("CONNECTED",test_n_char)) {
-    int foo_ind = serial_read_ind+test_n_char;
-    while (foo_ind >= AT_PROCESSOR_N_BUFFER) foo_ind -= AT_PROCESSOR_N_BUFFER;
+    int foo_ind = (serial_read_ind+test_n_char) % AT_PROCESSOR_N_BUFFER;
     if ((foo_ind==serial_write_ind) || (serial_buff[foo_ind] == EOC)) {
       ret_val = 0;
       sendSerialOkMessage((Bluefruit.connected()) ? "TRUE" : "FALSE");
@@ -1017,14 +1030,12 @@ int AT_Processor::processGetMessageInSerialBuff(void) {
 
   test_n_char = 7; //length of "VERSION"
   if (compareStringInSerialBuff("VERSION",test_n_char)) {
-    int foo_ind = serial_read_ind+test_n_char;
-    while (foo_ind >= AT_PROCESSOR_N_BUFFER) foo_ind -= AT_PROCESSOR_N_BUFFER;
+    int foo_ind = (serial_read_ind+test_n_char) % AT_PROCESSOR_N_BUFFER;
     if ((foo_ind==serial_write_ind) || (serial_buff[foo_ind] == EOC)) {
       ret_val = 0;
       sendSerialOkMessage(versionString);
     } else {
       ret_val = FORMAT_PROBLEM;
-
       sendSerialFailMessage("GET VERSION format problem. given: " + copyStringFromSerialBuffer(serial_read_ind));
     }     
     serial_read_ind = serial_write_ind;  //remove the message
@@ -1032,8 +1043,7 @@ int AT_Processor::processGetMessageInSerialBuff(void) {
 
   test_n_char = 13; //length of "CONN_INTERVAL"
   if (compareStringInSerialBuff("CONN_INTERVAL",test_n_char)) {
-    int foo_ind = serial_read_ind+test_n_char;
-    while (foo_ind >= AT_PROCESSOR_N_BUFFER) foo_ind -= AT_PROCESSOR_N_BUFFER;
+    int foo_ind = (serial_read_ind+test_n_char) % AT_PROCESSOR_N_BUFFER;
     if ((foo_ind==serial_write_ind) || (serial_buff[foo_ind] == EOC)) {
       ret_val = 0;
       sendSerialOkMessage(String(getConnectionInterval_msec()));
@@ -1046,8 +1056,7 @@ int AT_Processor::processGetMessageInSerialBuff(void) {
 
   test_n_char = 14; //length of "LOG_OF_LAST_TX"
   if (compareStringInSerialBuff("LOG_OF_LAST_TX",test_n_char)) {
-    int foo_ind = serial_read_ind+test_n_char;
-    while (foo_ind >= AT_PROCESSOR_N_BUFFER) foo_ind -= AT_PROCESSOR_N_BUFFER;
+    int foo_ind = (serial_read_ind+test_n_char) % AT_PROCESSOR_N_BUFFER;
     if ((foo_ind==serial_write_ind) || (serial_buff[foo_ind] == EOC)) {
       ret_val = 0;
       sendSerialOkMessage(String(txLog_numCalls) + " " + String(txLog_bytesLastGiven) + " " + String(txLog_bytesLastSent));
@@ -1058,10 +1067,23 @@ int AT_Processor::processGetMessageInSerialBuff(void) {
     serial_read_ind = serial_write_ind;  //remove the message
   }  
 
+  test_n_char = 14; //length of "BUFF_OVERFLOWS"
+  if (compareStringInSerialBuff("BUFF_OVERFLOWS",test_n_char)) {
+    int foo_ind = (serial_read_ind+test_n_char) % AT_PROCESSOR_N_BUFFER;
+    if ((foo_ind==serial_write_ind) || (serial_buff[foo_ind] == EOC)) {
+      ret_val = 0;
+      int n_UART_overrun = (int)checkSerial1OverrunFlag();
+      sendSerialOkMessage(String(n_UART_overrun) + " " + String(getNumRxATBufferOverflows()));
+    } else {
+      ret_val = FORMAT_PROBLEM;
+      sendSerialFailMessage("GET LOG_OF_LAST_TX format problem. given: " + copyStringFromSerialBuffer(serial_read_ind));;
+    }     
+    serial_read_ind = serial_write_ind;  //remove the message
+  }  
+
   test_n_char = 10; //length of "DELAY_MSEC"
   if (compareStringInSerialBuff("DELAY_MSEC",test_n_char)) {
-    int foo_ind = serial_read_ind+test_n_char;
-    while (foo_ind >= AT_PROCESSOR_N_BUFFER) foo_ind -= AT_PROCESSOR_N_BUFFER;
+    int foo_ind = (serial_read_ind+test_n_char) % AT_PROCESSOR_N_BUFFER;
     if ((foo_ind==serial_write_ind) || (serial_buff[foo_ind] == EOC)) {
       ret_val = 0;
       sendSerialOkMessage(String(txQueue_reqDelay_millis));
@@ -1074,8 +1096,7 @@ int AT_Processor::processGetMessageInSerialBuff(void) {
 
   test_n_char = 18; //length of "TX_QUEUE_FREEBYTES"
   if (compareStringInSerialBuff("TX_QUEUE_FREEBYTES",test_n_char)) {
-    int foo_ind = serial_read_ind+test_n_char;
-    while (foo_ind >= AT_PROCESSOR_N_BUFFER) foo_ind -= AT_PROCESSOR_N_BUFFER;
+    int foo_ind = (serial_read_ind+test_n_char) % AT_PROCESSOR_N_BUFFER;
     if ((foo_ind==serial_write_ind) || (serial_buff[foo_ind] == EOC)) {
       ret_val = 0;
       sendSerialOkMessage(String(txQueue.getNumFreeBytesInQueue()));
@@ -1088,14 +1109,13 @@ int AT_Processor::processGetMessageInSerialBuff(void) {
 
   test_n_char = 15; //length of "TX_QUEUE_N_MSGS"
   if (compareStringInSerialBuff("TX_QUEUE_N_MSGS",test_n_char)) {
-    int foo_ind = serial_read_ind+test_n_char;
-    while (foo_ind >= AT_PROCESSOR_N_BUFFER) foo_ind -= AT_PROCESSOR_N_BUFFER;
+    int foo_ind = (serial_read_ind+test_n_char) % AT_PROCESSOR_N_BUFFER;
     if ((foo_ind==serial_write_ind) || (serial_buff[foo_ind] == EOC)) {
       ret_val = 0;
       sendSerialOkMessage(String(txQueue.getNumMsgs()));
     } else {
       ret_val = FORMAT_PROBLEM;
-      sendSerialFailMessage("GET TX_QUEUE_N_MSGS format problem. given: " + copyStringFromSerialBuffer(serial_read_ind));;
+      sendSerialFailMessage("GET TX_QUEUE_N_MSGS format problem. given: " + copyStringFromSerialBuffer(serial_read_ind));
     }     
     serial_read_ind = serial_write_ind;  //remove the message
   }  
@@ -1103,7 +1123,7 @@ int AT_Processor::processGetMessageInSerialBuff(void) {
   // serach for another command
   //   anything?
   if (ret_val == PARAMETER_NOT_KNOWN) {
-    sendSerialFailMessage("GET parameter not known");
+    sendSerialFailMessage("GET parameter not known. given: " + copyStringFromSerialBuffer(serial_read_ind));
   }
 
   // give error message if message isn't known
@@ -1121,7 +1141,7 @@ int AT_Processor::setBeginFromSerialBuff(void) {
   int ret_val = OPERATION_FAILED;
   //int read_ind = serial_read_ind;
   char new_val = '1';  
-  if (lengthSerialMessage() > 0) if (serial_buff[serial_read_ind] == ' ') serial_read_ind++;  //skip over a single space, if it exists
+  if (lengthSerialMessage() > 0) if (serial_buff[serial_read_ind] == ' ') serial_read_ind = (serial_read_ind + 1) % AT_PROCESSOR_N_BUFFER;  //skip over a single space, if it exists
   if (lengthSerialMessage() > 0) new_val = serial_buff[serial_read_ind]; //cheating, assumes only 1 character
   if (new_val == '0') { //for FALSE
     //do not start
@@ -1158,7 +1178,8 @@ int AT_Processor::setMacAddressFromSerialBuff(void) {
       bool done = false;
       int targ_ind = 0;
       while (!done) {
-        char c = serial_buff[serial_read_ind++];  //get character and increment index to the next character
+        char c = serial_buff[serial_read_ind];  //get character
+        serial_read_ind = (serial_read_ind+1) % AT_PROCESSOR_N_BUFFER; //increment index to the next character
         //if ((c >= '0') && (c <= '9') || ((c >= 'A') && (c <= 'F')) || ((c >= 'a') && (c <= 'f'))) {
         if (isNumOrAtoF(c)) {
           //good
@@ -1189,8 +1210,8 @@ int AT_Processor::setBleNameFromSerialBuff(void) {
     bool done = false;
     int targ_ind = 0;
     while (!done) {
-      new_name[targ_ind++] = serial_buff[serial_read_ind++];
-      while (serial_read_ind >= AT_PROCESSOR_N_BUFFER) serial_read_ind -= AT_PROCESSOR_N_BUFFER;
+      new_name[targ_ind++] = serial_buff[serial_read_ind];
+      serial_read_ind = (serial_read_ind + 1) % AT_PROCESSOR_N_BUFFER;
       if (targ_ind >= max_len_name) done = true;
       if (serial_buff[serial_read_ind] == EOC) done = true;
       if (serial_read_ind == serial_write_ind) done = true;
@@ -1221,11 +1242,10 @@ int AT_Processor::setBleNameFromSerialBuff(void) {
 
 int AT_Processor::setAdvertisingFromSerialBuff(void) {
   int ret_val = OPERATION_FAILED;
-  if ((lengthSerialMessage() > 0) && (serial_buff[serial_read_ind]==' ')) serial_read_ind++; //remove leading whitespace
+  if ((lengthSerialMessage() > 0) && (serial_buff[serial_read_ind]==' ')) serial_read_ind = (serial_read_ind+1) % AT_PROCESSOR_N_BUFFER; //remove leading whitespace
   int read_ind = serial_read_ind;
   if (lengthSerialMessage() >= 2) {
-    int next_read_ind = read_ind+1;
-    while (next_read_ind >= AT_PROCESSOR_N_BUFFER) next_read_ind -= AT_PROCESSOR_N_BUFFER;
+    int next_read_ind = (read_ind+1) % AT_PROCESSOR_N_BUFFER;
     if ((serial_buff[read_ind]=='O') && (serial_buff[next_read_ind]=='N')) {  //look for ON
       startAdv();
       ret_val = 0;
@@ -1239,7 +1259,7 @@ int AT_Processor::setAdvertisingFromSerialBuff(void) {
 
 int AT_Processor::setAdvServiceIdFromSerialBuff(void) {
   int ret_val = OPERATION_FAILED;
-  if ((lengthSerialMessage() > 0) && (serial_buff[serial_read_ind]==' ')) serial_read_ind++; //remove leading whitespace
+  if ((lengthSerialMessage() > 0) && (serial_buff[serial_read_ind]==' ')) serial_read_ind = (serial_read_ind+1) % AT_PROCESSOR_N_BUFFER; //remove leading whitespace
   if (lengthSerialMessage() >= 1) {
     //only use the first character as the number...this is a kludge!
     //int targ_service_id = (int)(serial_buff[serial_read_ind]-'0');
@@ -1253,8 +1273,7 @@ int AT_Processor::setAdvServiceIdFromSerialBuff(void) {
 int AT_Processor::setLedModeFromSerialBuff(void) {
   int ret_val = OPERATION_FAILED;
   int read_ind = serial_read_ind;
-  if ((lengthSerialMessage(read_ind) > 0) && (serial_buff[read_ind]==' ')) read_ind++; //remove leading whitespace
-  while (read_ind >= AT_PROCESSOR_N_BUFFER) read_ind -= AT_PROCESSOR_N_BUFFER;
+  if ((lengthSerialMessage(read_ind) > 0) && (serial_buff[read_ind]==' ')) read_ind = (read_ind+1) % AT_PROCESSOR_N_BUFFER; //remove leading whitespace
   if (lengthSerialMessage(read_ind) >= 1) {
     if (serial_buff[read_ind]=='0') {
       led_control.disableLEDs();
@@ -1271,13 +1290,12 @@ int AT_Processor::setLedModeFromSerialBuff(void) {
 int AT_Processor::getIntValueFromSerialBuff(int start_ind, int *out_value) {
   int ret_val = OPERATION_FAILED;      //default, assume this will end as an error
   int read_ind = start_ind;           //where are we in the buffer holding the received characters?
-  if ((lengthSerialMessage(read_ind) > 0) && (serial_buff[read_ind]==' ')) read_ind++; //remove any leading whitespace
-  read_ind = read_ind % AT_PROCESSOR_N_BUFFER; //wrap around if we've gone off the end of the circular buffer
+  if ((lengthSerialMessage(read_ind) > 0) && (serial_buff[read_ind]==' ')) read_ind = (read_ind+1) % AT_PROCESSOR_N_BUFFER; //remove leading whitespace
   
   //parse through the characters looking for any sort of whitespace termination (or the end of the msg)
   int tmp_value = 0;
-  while ((lengthSerialMessage(read_ind)  > 0) && (serial_buff[read_ind] >= '0') && (serial_buff[read_ind] <= '9')) {
-    int new_digit = serial_buff[read_ind] - '0';       //extract the new digit
+  while ((lengthSerialMessage(read_ind) > 0) && (serial_buff[read_ind] >= '0') && (serial_buff[read_ind] <= '9')) {
+    int new_digit = (int)(serial_buff[read_ind]) - ((int)'0');       //extract the new digit
     tmp_value = tmp_value*10 + new_digit;            //update our running output value
     read_ind = (read_ind+1) % AT_PROCESSOR_N_BUFFER;   //inrement and wrap
     ret_val = 0;  //at this point, a numeral has been received, so we'll assume that this function is successful
@@ -1351,13 +1369,13 @@ int AT_Processor::bleSendFromSerialBuff(const bool flag_useTxQueue) {
   //check to make sure that there's something to send
   if (serial_read_ind == serial_write_ind) return NO_BYTES_SENT;  //should never happen?
 
-  //copy the message from the circular buffer to the straight buffer
+  //copy the whole message from the circular buffer to the straight buffer
   size_t counter = 0;
   while (serial_read_ind != serial_write_ind) {
     BLEmessage[counter] = serial_buff[serial_read_ind];
     counter++;
     serial_read_ind++;  
-    if (serial_read_ind >= AT_PROCESSOR_N_BUFFER) serial_read_ind = 0;
+    if (serial_read_ind >= AT_PROCESSOR_N_BUFFER) serial_read_ind = 0;  //wrap around
   }
 
   //is BLE connected?
