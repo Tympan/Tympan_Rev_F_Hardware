@@ -467,7 +467,7 @@ int AT_Processor::processSerialMessage(void) {
   //test for the verb "CLEAR_TX_QUEUE"
    test_n_char = 14; //how long is "CLEAR_TX_QUEUE"
   if (len >= test_n_char) {
-    if (compareStringInSerialBuff("RESET_TX_QUEUE",test_n_char)) {  //does the current message start this way
+    if (compareStringInSerialBuff("CLEAR_TX_QUEUE",test_n_char)) {  //does the current message start this way
       serial_read_ind = (serial_read_ind + test_n_char) % AT_PROCESSOR_N_BUFFER; //increment the reader index for the serial buffer
       txQueue.reset();
       sendSerialOkMessage(String(txQueue.getNumMsgs()) + " " + String(txQueue.getNumFreeBytesInQueue()));
@@ -1266,7 +1266,7 @@ int AT_Processor::setQueueDelayFromSerialBuff(void) {
 
 //returns zero for success
 int AT_Processor::setQueueDelay_msec(const int new_delay_msec) {
-  if (new_delay_msec >= 0) {
+  if (new_delay_msec >= 1) {
     txQueue_reqDelay_millis = new_delay_msec;
     return 0;
   }
