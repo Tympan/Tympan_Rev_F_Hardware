@@ -192,7 +192,7 @@ int serialManager_processCharacter(char c) {
       break; 
     case 'J':
       Serial.println("nRF52840 Firmware: sending J to Tympan...");
-      SERIAL_TO_TYMPAN.println("J");
+      SERIAL_WITH_TYMPAN.println("J");
       break;
     case 'v':
       issueATCommand(String("GET ADVERT_SERVICE_ID"));

@@ -39,23 +39,53 @@
 
 #define DEBUG_VIA_USB true
 
-#define SERIAL_TO_TYMPAN Serial1                 //use this when physically wired to a Tympan. Assumes that the nRF is connected via Serial1 pins
-#define SERIAL_FROM_TYMPAN Serial1               //use this when physically wired to a Tympan. Assumes that the nRF is connected via Serial1 pins
+// Let's enlarge the under-the-hood buffer used for receiving bytes on Serial1.
+// Per the Adafruit nRF52 library, it looks like I should be able use a #define
+// to see the buffer size myself.  See this line of code in RingBuffer.h
+// https://github.com/adafruit/Adafruit_nRF52_Arduino/blob/4a2d8dd5be9686b6580ed2249cae43972922572f/cores/nRF5/RingBuffer.h#L28
+#define SERIAL_BUFFER_SIZE 1024  //This is intended for Serial1.  By setting this here, it should override the default in the Adafruit nRF52 library
+
 
 // Include the files needed by nRF52 firmware
 #include <Arduino.h>
 #include <bluefruit.h>
 #include <Adafruit_LittleFS.h>
 #include <InternalFileSystem.h>
+
+// Include my own headers
 #include "BLE_Generic.h"
 #include "BLEUart_Adafruit.h"
 #include "BLE_BleDis.h"
 #include "BLEUart_Tympan.h"
+
+// Define my own aliases
+#if 0
+  //NEW METHOD
+
+  // Create my own Serial, following model of Adafruit nRF52 library:
+  // https://github.com/adafruit/Adafruit_nRF52_Arduino/blob/4a2d8dd5be9686b6580ed2249cae43972922572f/cores/nRF5/Uart.cpp#L266
+  #define PIN_RX 0   // The "BT_TX" from the Tympan connects to Pin 0 of the nRF52840
+  #define PIN_TX 1   // The "BT_RX" from the Tympan connects to Pin 1 of the nRF52840
+  Uart SerialAlt(NRF_UARTE0, UARTE0_UART0_IRQn, PIN_RX, PIN_TX);
+  //#define PIN_RTS 10   // The "BT_CTS" from the Tympan connects to Pin x of the nRF52840 
+  //#define PIN_CTS 9   // The "BT_RTS" from the Tympan connects to Pin x of the nRF52840
+  //#define USE_SERIAL_FLOW_CONTROL 1
+  //Uart(NRF_UARTE0, UARTE0_UART0_IRQn, PIN_RX, PIN_TX, PIN_CTS, PIN_RTS); //use hardware flow control
+
+  #define SERIAL_WITH_TYMPAN SerialAlt                 //use this when physically wired to a Tympan. Assumes that the nRF is connected via Serial1 pins
+
+#else
+
+  //OLD METHOD
+  #define SERIAL_WITH_TYMPAN Serial1                //use this when physically wired to a Tympan. Assumes that the nRF is connected via Serial1 pins
+
+#endif
+
+//include remaining headers that need to know about SERIAL_WITH_TYMPAN
 #include "BLE_Stuff.h"
 #include "LED_controller.h"
 #include "AT_Processor.h"  //must already have included LED_control.h
 #include "USB_SerialManager.h"
-
 
 // ///////////////////////////////// Helper Functions
 
@@ -96,11 +126,10 @@ void setup(void) {
   }
 
   //start the nRF's UART serial port that is physically connected to a Tympan or other microcrontroller (if used)
-  Serial1.setPins(0,1);   //our nRF wiring uses Pin0 for RX and Pin1 for TX
-  Serial1.begin(115200);  
-  //Serial1.begin(115200, SERIAL_8N1, 0,1,9,10);
+  SERIAL_WITH_TYMPAN.setPins(0,1);   //our nRF wiring uses Pin0 for RX and Pin1 for TX
+  SERIAL_WITH_TYMPAN.begin(115200); 
   delay(500);
-  while (Serial1.available()) Serial1.read();  //clear UART buffer
+  while (SERIAL_WITH_TYMPAN.available()) SERIAL_WITH_TYMPAN.read();  //clear UART buffer
 
   //setup the GPIO pins
   setupGPIO();
@@ -123,15 +152,14 @@ void loop(void) {
     if (Serial.available()) serialManager_processCharacter(Serial.read());
   }
   
-
   //Respond to incoming UART serial messages
-  serialEvent(&SERIAL_FROM_TYMPAN);  //for the nRF firmware, service any messages coming in the serial port from the Tympan
+  serialEvent(&SERIAL_WITH_TYMPAN);  //for the nRF firmware, service any messages coming in the serial port from the Tympan
   
   //Respond to incoming BLE messages
   if (bleBegun && bleConnected) { 
     //for the nRF firmware, service any messages coming in from BLE wireless link
-    if (bleUart_Tympan.has_begun) BLEevent(&bleUart_Tympan, &SERIAL_TO_TYMPAN);  
-    if (bleUart_Adafruit.has_begun) BLEevent(&bleUart_Adafruit, &SERIAL_TO_TYMPAN);  
+    if (bleUart_Tympan.has_begun) BLEevent(&bleUart_Tympan, &SERIAL_WITH_TYMPAN);  
+    if (bleUart_Adafruit.has_begun) BLEevent(&bleUart_Adafruit, &SERIAL_WITH_TYMPAN);  
   }
 
   //Service out-going BLE comms that have been queued by the AT-style processor
@@ -271,6 +299,6 @@ void globalWriteBleDataToTympan(const int service_id, const int char_id, uint8_t
 
   //send the data
   if (DEBUG_VIA_USB) { Serial.print(F("globalWriteBleDataToTympan: Sending: ")); Serial.write(msg,msg_len);Serial.println(); }
-  SERIAL_TO_TYMPAN.write(msg,msg_len);
+  SERIAL_WITH_TYMPAN.write(msg,msg_len);
 }
 

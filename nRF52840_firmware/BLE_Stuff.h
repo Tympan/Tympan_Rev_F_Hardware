@@ -48,8 +48,8 @@ BLE_BattService   ble_battService;  // battery service
 BLE_LedButtonService           ble_lbs; //standard Nordic LED Button Serice (1 byte of data)
 BLE_LedButtonService_4bytes    ble_lbs_4bytes; //modified Nordic LED Button Service using 4 bytes of data
 BLE_GenericService             ble_generic1, ble_generic2;
-//AT_Processor    AT_interpreter(&bleUart_Tympan, &SERIAL_TO_TYMPAN);  //interpreter for the AT command set that we're inventing
-AT_Processor      AT_interpreter(&bleUart_Tympan, &bleUart_Adafruit, &SERIAL_TO_TYMPAN);  //interpreter for the AT command set that we're inventing
+//AT_Processor    AT_interpreter(&bleUart_Tympan, &SERIAL_WITH_TYMPAN);  //interpreter for the AT command set that we're inventing
+AT_Processor      AT_interpreter(&bleUart_Tympan, &bleUart_Adafruit, &SERIAL_WITH_TYMPAN);  //interpreter for the AT command set that we're inventing
 
 // Define a container for holding BLE Services that might need to get invoked independently later
 #define MAX_N_PRESET_SERVICES 10  //adafruit says that the nRF52 library only allows 10 to be active at one time?

@@ -78,7 +78,8 @@ class AT_Processor {
   protected:
     BLEUart_Tympan *ble_ptr1 = NULL;
     BLEUart *ble_ptr2 = NULL;
-    HardwareSerial *serial_ptr = &Serial1;
+    //HardwareSerial *serial_ptr = &Serial1;
+    HardwareSerial *serial_ptr = &SERIAL_WITH_TYMPAN;
     char EOC = '\r'; //all commands (including "SEND") from the Tympan must end in this character
     enum RXMODE {RXMODE_LOOK_FOR_ANY = 0, 
                 RXMODE_LOOK_FOR_CR_ONLY, 
