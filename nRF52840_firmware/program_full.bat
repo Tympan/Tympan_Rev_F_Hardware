@@ -25,7 +25,7 @@
 path "C:\Program Files\Nordic Semiconductor\nrf-command-line-tools\bin\"
 
 :: Store path to adafruit nRF Bootloader v1.6.1
-set bootloaderHex=%LOCALAPPDATA%\Arduino15\packages\adafruit\hardware\nrf52\1.6.1\bootloader\feather_nrf52840_express\feather_nrf52840_express_bootloader-0.9.0_s140_6.1.1.hex
+set bootloaderHex=%LOCALAPPDATA%\Arduino15\packages\adafruit\hardware\nrf52\1.7.0\bootloader\feather_nrf52840_express\feather_nrf52840_express_bootloader-0.9.1_s140_6.1.1.hex
 
 :: Store path to Adafruit nRF52840 firmware 
 set fwPath=build\adafruit.nrf52.feather52840\nRF52840_firmware.ino.hex
