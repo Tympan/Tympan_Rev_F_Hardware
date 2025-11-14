@@ -58,28 +58,7 @@
 #include "BLE_BleDis.h"
 #include "BLEUart_Tympan.h"
 
-// Define my own aliases
-#if 0
-  //NEW METHOD
-
-  // Create my own Serial, following model of Adafruit nRF52 library:
-  // https://github.com/adafruit/Adafruit_nRF52_Arduino/blob/4a2d8dd5be9686b6580ed2249cae43972922572f/cores/nRF5/Uart.cpp#L266
-  #define PIN_RX 0   // The "BT_TX" from the Tympan connects to Pin 0 of the nRF52840
-  #define PIN_TX 1   // The "BT_RX" from the Tympan connects to Pin 1 of the nRF52840
-  Uart SerialAlt(NRF_UARTE0, UARTE0_UART0_IRQn, PIN_RX, PIN_TX);
-  //#define PIN_RTS 10   // The "BT_CTS" from the Tympan connects to Pin x of the nRF52840 
-  //#define PIN_CTS 9   // The "BT_RTS" from the Tympan connects to Pin x of the nRF52840
-  //#define USE_SERIAL_FLOW_CONTROL 1
-  //Uart(NRF_UARTE0, UARTE0_UART0_IRQn, PIN_RX, PIN_TX, PIN_CTS, PIN_RTS); //use hardware flow control
-
-  #define SERIAL_WITH_TYMPAN SerialAlt                 //use this when physically wired to a Tympan. Assumes that the nRF is connected via Serial1 pins
-
-#else
-
-  //OLD METHOD
-  #define SERIAL_WITH_TYMPAN Serial1                //use this when physically wired to a Tympan. Assumes that the nRF is connected via Serial1 pins
-
-#endif
+#define SERIAL_WITH_TYMPAN Serial1                //use this when physically wired to a Tympan. Assumes that the nRF is connected via Serial1 pins
 
 //include remaining headers that need to know about SERIAL_WITH_TYMPAN
 #include "BLE_Stuff.h"
@@ -128,7 +107,7 @@ void setup(void) {
   //start the nRF's UART serial port that is physically connected to a Tympan or other microcrontroller (if used)
   SERIAL_WITH_TYMPAN.setPins(0,1);   //our nRF wiring uses Pin0 for RX and Pin1 for TX
   SERIAL_WITH_TYMPAN.begin(115200); 
-  delay(500);
+  delay(100);
   while (SERIAL_WITH_TYMPAN.available()) SERIAL_WITH_TYMPAN.read();  //clear UART buffer
 
   //setup the GPIO pins
@@ -166,7 +145,7 @@ void loop(void) {
   AT_interpreter.update(millis());
 
   //periodically update the delay used for queued comms in case the BLE connection interval has changed
-  serviceBleQueueDelayViaBleConnInterval(millis());
+  serviceBleQueueDelayViaBleConnInterval(millis()); //has the "connection interval" setting been changed by anyone?
 
   //service the LEDs
   serviceLEDs(millis());
