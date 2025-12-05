@@ -25,7 +25,7 @@ bool was_MAC_set_by_user = false;
 
 
 //   vvvvv  VERSION INDICATION  vvvvv
-const char versionString[] = "TympanBLE v0.4.1, nRF52840";
+const char versionString[] = "TympanBLE v0.4.2, nRF52840";
 char deviceName[] = "TympanF-TACO"; // gets modified with part of the uniqueID
 const char manufacturerName[] = "Flywheel Lab";
 
@@ -187,7 +187,8 @@ void setupBLE(){
   // for (int I=0; I<MAC_NBYTES; I++) Serial.print(this_gap_addr.addr[MAC_NBYTES-1-I],HEX);
   // Serial.println();
 
-  //set the default name
+  //set the default BLE name
+  uniqueID = getMcuUniqueID();
   deviceName[8] = uniqueID.charAt(11); // [10];
   deviceName[9] = uniqueID.charAt(12); // [11];
   deviceName[10] = uniqueID.charAt(13); // [12];
