@@ -15517,6 +15517,17 @@
 			(uuid "8ba6e27e-8af9-469f-babb-c13b9b188dd5")
 		)
 		(embedded_fonts no)
+		(model "${KIPRJMOD}/Library/3D-parts/MJTP1117.stp"
+			(offset
+				(xyz 0 -2.3 2.5)
+			)
+			(scale
+				(xyz 1 1 1)
+			)
+			(rotate
+				(xyz -0 -0 -0)
+			)
+		)
 	)
 	(footprint "Capacitor_SMD:C_0402_1005Metric"
 		(layer "F.Cu")

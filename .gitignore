@@ -4,4 +4,4 @@
 *.gcode
 *.lck
 *.xlsx#
-*.DS_Store
+.DS_Store
