@@ -34,6 +34,7 @@
       "footprint_text",
       "footprint_anchors",
       "ratsnest",
+      "grid",
       "footprints_front",
       "footprints_back",
       "footprint_values",
@@ -47,11 +48,10 @@
       "drc_warnings",
       "shapes"
     ],
-    "visible_layers": "00000000_00000000_00001000_a28aa0ff",
+    "visible_layers": "00000000_00000000_00001010_0280a0ff",
     "zone_display_mode": 0
   },
   "git": {
-    "repo_password": "",
     "repo_type": "",
     "repo_username": "",
     "ssh_key": ""

@@ -419,7 +419,6 @@
 		)
 		(embedded_fonts no)
 		(model "${KISYS3DMOD}/Connector_JST.3dshapes/JST_PH_S2B-PH-K_1x02_P2.00mm_Horizontal.step"
-			(hide yes)
 			(offset
 				(xyz -1 0 0)
 			)
@@ -12380,7 +12379,6 @@
 		)
 		(embedded_fonts no)
 		(model "${KISYS3DMOD}/Package_TO_SOT_SMD.3dshapes/SOT-23-5.wrl"
-			(hide yes)
 			(offset
 				(xyz 0 0 0)
 			)
@@ -17222,7 +17220,6 @@
 		)
 		(embedded_fonts no)
 		(model "${KICAD6_3DMODEL_DIR}/RF_Module.3dshapes/Raytac_MDBT50Q.wrl"
-			(hide yes)
 			(offset
 				(xyz 0 0 0)
 			)
@@ -21439,6 +21436,7 @@
 		)
 		(embedded_fonts no)
 		(model "${KIPRJMOD}/Library/3D-parts/Teensy 4.1--3DModel-STEP-269445.STEP"
+			(hide yes)
 			(offset
 				(xyz 0 0 1)
 			)

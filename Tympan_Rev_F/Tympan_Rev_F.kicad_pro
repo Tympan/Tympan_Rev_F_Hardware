@@ -1237,7 +1237,7 @@
       "plot": "Production/",
       "pos_files": "",
       "specctra_dsn": "",
-      "step": "../../../biomurph github/Creare/Dosimeter-PCB/3D_Models/Tympan_Rev_E.STEP",
+      "step": "../../../biomurphGithub/EchoProbe/EchoProbe-hardware/CAD/Tympan_Rev_E.step",
       "svg": "",
       "vrml": ""
     },
